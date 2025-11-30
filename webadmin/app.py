@@ -25,8 +25,10 @@ def create_app(config=None):
 
     # Register blueprints
     from routes.dashboard import dashboard_bp
+    from routes.about import about_bp
 
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(about_bp)
 
     return app
 

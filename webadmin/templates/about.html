@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About - Phishly Admin Portal</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h1>🐟 Phishly</h1>
+            <p class="version">Admin Portal</p>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="/" class="nav-item">
+                <span class="icon">📊</span>
+                <span>Dashboard</span>
+            </a>
+            <a href="/campaigns" class="nav-item">
+                <span class="icon">📧</span>
+                <span>Campaigns</span>
+            </a>
+            <a href="/templates" class="nav-item">
+                <span class="icon">📝</span>
+                <span>Templates</span>
+            </a>
+            <a href="/targets" class="nav-item">
+                <span class="icon">👥</span>
+                <span>Targets</span>
+            </a>
+            <a href="/analytics" class="nav-item">
+                <span class="icon">📈</span>
+                <span>Analytics</span>
+            </a>
+            <a href="/settings" class="nav-item">
+                <span class="icon">⚙️</span>
+                <span>Settings</span>
+            </a>
+            <a href="/about" class="nav-item active">
+                <span class="icon">ℹ️</span>
+                <span>About</span>
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <span class="icon">👤</span>
+                <span>Admin User</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        <header class="page-header">
+            <h2>About Phishly</h2>
+        </header>
+
+        <!-- About Overview -->
+        <section class="content-section">
+            <div class="about-header">
+                <h1 style="font-size: 2.5rem; margin-bottom: 1rem; color: var(--primary-color);">🐟 Phishly</h1>
+                <p style="font-size: 1.125rem; color: var(--text-secondary); margin-bottom: 2rem;">
+                    A phishing simulation platform for security awareness training
+                </p>
+            </div>
+
+            <div style="line-height: 1.8; color: var(--text-primary);">
+                <p style="margin-bottom: 1rem;">
+                    Phishly is a comprehensive security awareness training platform designed to help organizations 
+                    test and improve their employees' ability to recognize and respond to phishing attacks. Through 
+                    controlled simulations, administrators can create realistic phishing campaigns, track employee 
+                    interactions, and analyze security awareness metrics.
+                </p>
+                <p style="margin-bottom: 1rem;">
+                    The platform enables organizations to proactively identify vulnerabilities in their human firewall 
+                    and provide targeted training to reduce the risk of successful phishing attacks.
+                </p>
+            </div>
+        </section>
+
+        <!-- Ethical Use Warning -->
+        <section class="content-section" style="border-left: 4px solid var(--warning-color); background-color: #fffbeb;">
+            <div class="section-header">
+                <h3 style="color: var(--warning-color); display: flex; align-items: center;">
+                    <span style="font-size: 1.5rem; margin-right: 0.5rem;">⚠️</span>
+                    Ethical Use Policy
+                </h3>
+            </div>
+            
+            <div style="line-height: 1.8; color: var(--text-primary);">
+                <p style="margin-bottom: 1rem; font-weight: 500;">
+                    <strong>IMPORTANT: This tool must ONLY be used for authorized security awareness testing.</strong>
+                </p>
+                
+                <h4 style="margin-top: 1.5rem; margin-bottom: 0.75rem; color: var(--text-primary);">Permitted Use:</h4>
+                <ul style="margin-left: 1.5rem; margin-bottom: 1rem;">
+                    <li>Internal security awareness training within your organization</li>
+                    <li>Authorized phishing simulations with written approval from management</li>
+                    <li>Educational purposes in controlled environments</li>
+                    <li>Testing with explicit consent from all participants</li>
+                </ul>
+
+                <h4 style="margin-top: 1.5rem; margin-bottom: 0.75rem; color: var(--text-primary);">Prohibited Use:</h4>
+                <ul style="margin-left: 1.5rem; margin-bottom: 1rem;">
+                    <li><strong style="color: var(--danger-color);">NO real phishing attacks against external parties</strong></li>
+                    <li><strong style="color: var(--danger-color);">NO unauthorized testing without proper approval</strong></li>
+                    <li><strong style="color: var(--danger-color);">NO malicious use to compromise systems or steal data</strong></li>
+                    <li><strong style="color: var(--danger-color);">NO attacks against individuals without organizational consent</strong></li>
+                </ul>
+
+                <p style="margin-top: 1.5rem; padding: 1rem; background-color: white; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+                    <strong>Legal Notice:</strong> Unauthorized use of this tool for malicious phishing attacks is illegal 
+                    and may result in criminal prosecution under anti-hacking and fraud laws. Users are responsible for 
+                    ensuring all campaigns comply with applicable laws and organizational policies.
+                </p>
+            </div>
+        </section>
+
+        <!-- Team Information -->
+        <section class="content-section">
+            <div class="section-header">
+                <h3>Development Team</h3>
+            </div>
+            
+            <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
+                Phishly is developed by a dedicated team of cybersecurity students from Lycée Guillaume Kroll 
+                as part of our BTS Cybersecurity Project.
+            </p>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                <div class="team-member-card">
+                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">👨‍💼</div>
+                    <h4 style="margin-bottom: 0.25rem;">Liam Wolff</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.875rem;">Project Management, Webadmin</p>
+                </div>
+
+                <div class="team-member-card">
+                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">💾</div>
+                    <h4 style="margin-bottom: 0.25rem;">Diogo Carvalho</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.875rem;">Database, Full-stack Support</p>
+                </div>
+
+                <div class="team-member-card">
+                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚙️</div>
+                    <h4 style="margin-bottom: 0.25rem;">Sam Kafai</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.875rem;">Worker & Redis Integration</p>
+                </div>
+
+                <div class="team-member-card">
+                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">🗄️</div>
+                    <h4 style="margin-bottom: 0.25rem;">Sam Schroeder</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.875rem;">Database Operations</p>
+                </div>
+
+                <div class="team-member-card">
+                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">🎨</div>
+                    <h4 style="margin-bottom: 0.25rem;">Rodrigo Sá</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.875rem;">Phishing Landing Pages & Templates</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Project Information -->
+        <section class="content-section">
+            <div class="section-header">
+                <h3>Project Information</h3>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+                <div>
+                    <h4 style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">Version</h4>
+                    <p style="font-size: 1.125rem; font-weight: 600;">1.0.0 Beta</p>
+                </div>
+
+                <div>
+                    <h4 style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">Institution</h4>
+                    <p style="font-size: 1.125rem; font-weight: 600;">Lycée Guillaume Kroll</p>
+                </div>
+
+                <div>
+                    <h4 style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">Program</h4>
+                    <p style="font-size: 1.125rem; font-weight: 600;">BTS Cybersecurity</p>
+                </div>
+
+                <div>
+                    <h4 style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">Year</h4>
+                    <p style="font-size: 1.125rem; font-weight: 600;">2025</p>
+                </div>
+            </div>
+
+            <div style="margin-top: 2rem; padding: 1rem; background-color: var(--bg-primary); border-radius: 0.5rem;">
+                <h4 style="margin-bottom: 0.75rem;">Technology Stack</h4>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    <span class="tech-badge">Flask</span>
+                    <span class="tech-badge">Python</span>
+                    <span class="tech-badge">PostgreSQL</span>
+                    <span class="tech-badge">Redis</span>
+                    <span class="tech-badge">Celery</span>
+                    <span class="tech-badge">Docker</span>
+                    <span class="tech-badge">Caddy</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- License and Copyright -->
+        <section class="content-section">
+            <div class="section-header">
+                <h3>License & Copyright</h3>
+            </div>
+            
+            <p style="color: var(--text-secondary); line-height: 1.8;">
+                This project is an internal academic project developed for educational purposes only. 
+                All rights reserved by the Phishly Team.
+            </p>
+            <p style="margin-top: 1rem; color: var(--text-secondary);">
+                © 2025 Phishly Team — Lycée Guillaume Kroll
+            </p>
+        </section>
+    </main>
+
+    <style>
+        .team-member-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .team-member-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .tech-badge {
+            display: inline-block;
+            padding: 0.375rem 0.75rem;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+    </style>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
