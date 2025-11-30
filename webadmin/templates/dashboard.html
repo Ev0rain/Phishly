@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phishly - Admin Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h1>🐟 Phishly</h1>
+            <p class="version">Admin Portal</p>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="/" class="nav-item active">
+                <span class="icon">📊</span>
+                <span>Dashboard</span>
+            </a>
+            <a href="/campaigns" class="nav-item">
+                <span class="icon">📧</span>
+                <span>Campaigns</span>
+            </a>
+            <a href="/templates" class="nav-item">
+                <span class="icon">📝</span>
+                <span>Templates</span>
+            </a>
+            <a href="/targets" class="nav-item">
+                <span class="icon">👥</span>
+                <span>Targets</span>
+            </a>
+            <a href="/analytics" class="nav-item">
+                <span class="icon">📈</span>
+                <span>Analytics</span>
+            </a>
+            <a href="/settings" class="nav-item">
+                <span class="icon">⚙️</span>
+                <span>Settings</span>
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <span class="icon">👤</span>
+                <span>Admin User</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        <header class="page-header">
+            <h2>Dashboard</h2>
+            <div class="header-actions">
+                <button class="btn btn-primary">+ New Campaign</button>
+            </div>
+        </header>
+
+        <!-- Statistics Cards -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-icon">📧</span>
+                    <span class="stat-label">Emails Sent</span>
+                </div>
+                <div class="stat-value">{{ stats.emails_sent }}</div>
+                <div class="stat-footer">
+                    <span class="stat-change positive">+12% this week</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-icon">📖</span>
+                    <span class="stat-label">Open Rate</span>
+                </div>
+                <div class="stat-value">{{ "%.1f"|format(stats.open_rate) }}%</div>
+                <div class="stat-footer">
+                    <span class="stat-detail">{{ stats.emails_opened }}/{{ stats.emails_sent }} opened</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-icon">🖱️</span>
+                    <span class="stat-label">Click Rate</span>
+                </div>
+                <div class="stat-value">{{ "%.1f"|format(stats.click_rate) }}%</div>
+                <div class="stat-footer">
+                    <span class="stat-detail">{{ stats.links_clicked }} links clicked</span>
+                </div>
+            </div>
+
+            <div class="stat-card warning">
+                <div class="stat-header">
+                    <span class="stat-icon">⚠️</span>
+                    <span class="stat-label">Credentials Submitted</span>
+                </div>
+                <div class="stat-value">{{ stats.credentials_submitted }}</div>
+                <div class="stat-footer">
+                    <span class="stat-detail">{{ "%.1f"|format(stats.submission_rate) }}% submission rate</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-icon">🎯</span>
+                    <span class="stat-label">Active Campaigns</span>
+                </div>
+                <div class="stat-value">{{ stats.active_campaigns }}</div>
+                <div class="stat-footer">
+                    <span class="stat-detail">{{ stats.total_campaigns }} total</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-icon">👥</span>
+                    <span class="stat-label">Total Targets</span>
+                </div>
+                <div class="stat-value">{{ stats.total_targets }}</div>
+                <div class="stat-footer">
+                    <span class="stat-detail">Across all campaigns</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Recent Campaigns -->
+        <section class="content-section">
+            <div class="section-header">
+                <h3>Recent Campaigns</h3>
+                <a href="/campaigns" class="link">View All →</a>
+            </div>
+            
+            <div class="campaigns-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Campaign Name</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Targets</th>
+                            <th>Opened</th>
+                            <th>Clicked</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for campaign in campaigns %}
+                        <tr>
+                            <td class="campaign-name">{{ campaign.name }}</td>
+                            <td>
+                                <span class="status-badge status-{{ campaign.status }}">
+                                    {{ campaign.status }}
+                                </span>
+                            </td>
+                            <td>{{ campaign.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td>{{ campaign.targets }}</td>
+                            <td>{{ campaign.opened }}</td>
+                            <td>{{ campaign.clicked }}</td>
+                            <td>
+                                <button class="btn-icon" title="View Details">👁️</button>
+                                <button class="btn-icon" title="Edit">✏️</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Quick Actions Panel -->
+        <section class="content-section">
+            <div class="section-header">
+                <h3>Quick Actions</h3>
+            </div>
+            <div class="quick-actions">
+                <a href="/campaigns/new" class="action-card">
+                    <span class="action-icon">📧</span>
+                    <h4>Create Campaign</h4>
+                    <p>Launch a new phishing simulation</p>
+                </a>
+                <a href="/templates/new" class="action-card">
+                    <span class="action-icon">📝</span>
+                    <h4>New Template</h4>
+                    <p>Design an email template</p>
+                </a>
+                <a href="/targets/import" class="action-card">
+                    <span class="action-icon">📥</span>
+                    <h4>Import Targets</h4>
+                    <p>Upload employee list (CSV)</p>
+                </a>
+                <a href="/analytics" class="action-card">
+                    <span class="action-icon">📊</span>
+                    <h4>View Reports</h4>
+                    <p>Analyze campaign performance</p>
+                </a>
+            </div>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
