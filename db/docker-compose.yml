@@ -15,12 +15,24 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+    networks:
+      - net_admin
+      - net_data
+
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
+
+networks:
+  net_admin:
+    external: true
+    name: net_admin
+  net_data:
+    external: true
+    name: net_data
 
 volumes:
   postgres_data:

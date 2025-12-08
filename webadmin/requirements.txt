@@ -1,0 +1,37 @@
+# Phishly WebAdmin - Flask Application Requirements
+
+# ============================================
+# Flask Web Framework
+# ============================================
+Flask==3.0.0
+Werkzeug==3.0.1
+Jinja2==3.1.2
+
+# ============================================
+# Authentication & Sessions
+# ============================================
+Flask-Session==0.5.0      # Redis-backed sessions
+Flask-WTF==1.2.1          # CSRF protection and forms
+# Flask-Login==0.6.3      # User authentication (future)
+
+# ============================================
+# Database (Future Integration)
+# ============================================
+# SQLAlchemy==2.0.23
+# psycopg2-binary==2.9.9
+# alembic==1.13.1         # Database migrations
+
+# ============================================
+# Redis Client
+# ============================================
+redis==5.0.1              # Session storage
+
+# ============================================
+# Utilities
+# ============================================
+python-dotenv==1.0.0
+
+# ============================================
+# Production Server
+# ============================================
+# gunicorn==21.2.0        # WSGI server for production
