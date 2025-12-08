@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: celery-worker
+    restart: unless-stopped
+
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      POSTGRES_HOST: postgres-db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    networks:
+      - net_data
+
+    depends_on:
+      - redis
+
+    command: celery -A tasks worker --loglevel=info
+
+networks:
+  net_data:
+    external: true
+    name: net_data

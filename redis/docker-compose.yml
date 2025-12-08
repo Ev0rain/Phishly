@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  redis:
+    image: docker.io/library/redis:7-alpine
+    container_name: redis-cache
+    restart: unless-stopped
+
+    command: redis-server /usr/local/etc/redis/redis.conf
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+
+    networks:
+      - net_data
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  net_data:
+    external: true
+    name: net_data
+
+volumes:
+  redis_data:
+    driver: local
