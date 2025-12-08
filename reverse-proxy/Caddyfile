@@ -1,0 +1,63 @@
+# Phishly Reverse Proxy Configuration
+# This Caddyfile routes traffic between public phishing pages and internal admin GUI
+# while enforcing network-based access control
+
+# Global options
+{
+    # Define RFC1918 private IP ranges + IPv6 ULA globally
+    (rfc1918_ranges) {
+        remote_ip 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 fc00::/7
+    }
+}
+
+# Public phishing landing pages (*.school-lgk.lu:443)
+# Block internal network access to prevent staff from accidentally opening phishing pages
+*.school-lgk.lu:443 {
+    # Use Let's Encrypt certificates mounted from host (per domain)
+    tls /ssl/phish/school-lgk.lu/fullchain.pem /ssl/phish/school-lgk.lu/privkey.pem {
+        protocols tls1.2 tls1.3
+    }
+
+    # Block private IP ranges (RFC1918)
+    @private_networks {
+        import rfc1918_ranges
+    }
+
+    handle @private_networks {
+        abort
+    }
+
+    # Forward all other traffic to phish container
+    reverse_proxy phish:5000 {
+        # Docker DNS will resolve "phish" to the container
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}
+
+# Internal admin GUI (phishing.btslgk.lu:8006)
+# Only allow access from private networks (school LAN/VPN)
+phishing.btslgk.lu:8006 {
+    # Use self-signed certificate mounted from host
+    tls /ssl/webadmin/fullchain.pem /ssl/webadmin/privkey.pem {
+        protocols tls1.2 tls1.3
+    }
+
+    # Allow only private IP ranges (RFC1918)
+    @public_networks {
+        not import rfc1918_ranges
+    }
+
+    handle @public_networks {
+        abort
+    }
+
+    # Forward to webadmin container
+    reverse_proxy webadmin:8006 {
+        # Docker DNS will resolve "webadmin" to the container
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}

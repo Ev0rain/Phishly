@@ -1,0 +1,29 @@
+# Phishly Worker - Celery Task Queue Requirements
+
+# ============================================
+# Celery & Message Queue
+# ============================================
+celery==5.3.4             # Async task queue
+redis==5.0.1              # Message broker & result backend
+
+# ============================================
+# Database
+# ============================================
+SQLAlchemy==2.0.23        # ORM for database access
+psycopg2-binary==2.9.9    # PostgreSQL driver
+
+# ============================================
+# Email Sending
+# ============================================
+# mailjet-rest==1.3.4     # Mailjet SMTP API (future)
+# mailgun==0.1.1          # Mailgun API (future)
+
+# ============================================
+# Utilities
+# ============================================
+python-dotenv==1.0.0
+
+# ============================================
+# Monitoring & Logging
+# ============================================
+# flower==2.0.1           # Celery monitoring dashboard (future)
