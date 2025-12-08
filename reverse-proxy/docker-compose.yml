@@ -1,0 +1,53 @@
+services:
+  caddy:
+    image: caddy:latest
+    container_name: phishly-reverse-proxy
+    restart: unless-stopped
+
+    ports:
+      # Only port 443 exposed to host (public interface)
+      - "443:443"
+      - "8006:8006"
+
+    volumes:
+      # Mount Caddyfile configuration
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+
+      # Caddy data (for automatic HTTPS if needed later)
+      - caddy_data:/data
+
+      # Caddy config storage
+      - caddy_config:/config
+
+      # Mount SSL certificates for phishing domains
+      # Format: /path/on/host/letsencrypt/school-lgk.lu:/ssl/phish/school-lgk.lu:ro
+      - ./ssl/phish:/ssl/phish:ro
+
+      # Mount self-signed certificate for admin GUI
+      - ./ssl/webadmin:/ssl/webadmin:ro
+    networks:
+      - net_public
+      - net_admin
+      - net_data
+
+networks:
+  net_public:
+    name: net_public
+    driver: bridge
+    # This network connects to the public internet
+
+  net_admin:
+    name: net_admin
+    driver: bridge
+    # Internal network for admin GUI (school LAN/VPN only)
+
+  net_data:
+    name: net_data
+    driver: bridge
+    # Strictly private network for backend services
+
+volumes:
+  caddy_data:
+    name: phishly_caddy_data
+  caddy_config:
+    name: phishly_caddy_config
