@@ -1,9 +1,5 @@
 .github/
 venv/
-.venv/
-pyproject.toml
-uv.lock
-.python-version
 
 # Python cache
 __pycache__/
