@@ -2,48 +2,27 @@
 
 # 🐟 Phishly
 
-### Enterprise-Grade Phishing Simulation Platform
+### Phishing Simulation Platform for Security Awareness Training
 
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-6.5.0-brightgreen.svg)](https://github.com/phishly/phishly/releases)
-[![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)](https://nodejs.org)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
-[![Docker](https://img.shields.io/badge/docker-required-2496ED.svg?logo=docker)](https://www.docker.com)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Flask](https://img.shields.io/badge/flask-3.0.0-black.svg)](https://flask.palletsprojects.com/)
+[![Docker](https://img.shields.io/badge/docker-ready-2496ED.svg?logo=docker)](https://www.docker.com)
 
-**Phishly** is a comprehensive phishing simulation platform designed for organizations to conduct security awareness training, test employee vigilance, and analyze security behavior through controlled phishing campaigns.
+**Phishly** is a phishing simulation platform for organizations to conduct security awareness training and analyze employee behavior through controlled phishing campaigns.
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Architecture](#-architecture)
+[Quick Start](#-quick-start) • [Architecture](#-architecture) • [Team](#-team)
 
 </div>
 
 ---
 
-## 🎯 Features
+## 🎯 Current Features
 
-### Campaign Management
-- 📧 **Customizable Templates** - Create realistic phishing emails with dynamic variables
-- 🎯 **Target Segmentation** - Organize campaigns by department, role, or custom groups
-- ⏱️ **Scheduled Campaigns** - Plan and automate campaign launches
-- 📊 **Real-time Tracking** - Monitor opens, clicks, and credential submissions
-
-### Analytics & Reporting
-- 📈 **Comprehensive Dashboard** - Visual insights into campaign performance
-- 🔍 **Behavioral Analytics** - Track individual and group security awareness metrics
-- 📉 **Trend Analysis** - Identify patterns and improvement areas over time
-- 📑 **Export Reports** - Generate detailed reports for compliance and training
-
-### Security & Compliance
-- 🔐 **Session-based Authentication** - Secure admin access with Redis session storage
-- 🔒 **CSRF Protection** - Built-in security for all forms and API endpoints
-- 🛡️ **Network Isolation** - Separate public and internal domains
-- 📝 **Audit Logging** - Complete tracking of all campaign activities
-
-### Developer Experience
-- 🐳 **Docker-native** - Containerized microservices architecture
-- 🔧 **Easy Configuration** - Environment-based configuration management
-- 🔄 **Scalable Design** - Microservices pattern with async task processing
-- 🧪 **Testing Suite** - Comprehensive test coverage
+- 📊 **Admin Dashboard** - Web interface for campaign management and statistics
+- 📧 **Template System** - Create phishing email templates (in development)
+- 🎯 **Campaign Management** - Organize and track phishing campaigns (in development)
+- 🔐 **Authentication Ready** - Session-based auth infrastructure planned
 
 ---
 
@@ -151,25 +130,25 @@ Phishly follows a **microservices architecture** with strict service boundaries:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Caddy Reverse Proxy                       │
+│                    Caddy Reverse Proxy                      │
 │          (HTTPS Termination & Request Routing)              │
 └─────────────┬───────────────────────────┬───────────────────┘
               │                           │
-    ┌─────────▼──────────┐      ┌────────▼─────────┐
-    │   Webadmin Service │      │   Phish Service   │
-    │   (Flask Admin)    │      │  (Landing Pages)  │
-    │   Port: 8006       │      │   Port: 8007      │
-    └─────────┬──────────┘      └────────┬──────────┘
+    ┌─────────▼──────────┐       ┌────────▼─────────┐
+    │   Webadmin Service │       │   Phish Service  │
+    │   (Flask Admin)    │       │  (Landing Pages) │
+    │   Port: 8006       │       │   Port: 8007     │
+    └─────────┬──────────┘       └────────┬─────────┘
               │                           │
               └───────────┬───────────────┘
                           │
               ┌───────────▼────────────┐
-              │   PostgreSQL Database   │
+              │   PostgreSQL Database  │
               │   Port: 5432           │
               └───────────┬────────────┘
                           │
     ┌─────────────────────┴─────────────────────┐
-    │                                            │
+    │                                           │
 ┌───▼──────────┐                    ┌───────────▼────────┐
 │ Redis Queue  │◄───────────────────┤  Celery Worker     │
 │ Port: 6379   │                    │  (Email Sending)   │
