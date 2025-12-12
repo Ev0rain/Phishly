@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  webadmin:
+    build:
+      context: .
+      target: development  # Use 'production' for production builds
+    container_name: phishly-webadmin
+    restart: unless-stopped
+    ports:
+      - "8006:8006"
+    environment:
+      # Flask Configuration
+      FLASK_APP: app.py
+      FLASK_DEBUG: "True"
+      FLASK_PORT: 8006
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      
+      # Database (when ready)
+      # DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      
+      # Redis (when ready)
+      # REDIS_URL: redis://redis:6379/0
+    volumes:
+      # Mount code for hot-reload in development
+      - ./:/app
+      # Exclude Python cache
+      - /app/__pycache__
+      - /app/.pytest_cache
+    networks:
+      - phishly-network
+    # Uncomment when database and redis are ready
+    # depends_on:
+    #   - db
+    #   - redis
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8006/').read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Uncomment when database is ready
+  # db:
+  #   image: postgres:15-alpine
+  #   container_name: phishly-db
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: ${POSTGRES_DB:-phishly_db}
+  #     POSTGRES_USER: ${POSTGRES_USER:-phishly_user}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #     - ../db/DB.sql:/docker-entrypoint-initdb.d/init.sql
+  #   ports:
+  #     - "5432:5432"
+  #   networks:
+  #     - phishly-network
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-phishly_user}"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  # Uncomment when Redis is ready
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: phishly-redis
+  #   restart: unless-stopped
+  #   command: redis-server --appendonly yes
+  #   volumes:
+  #     - redis-data:/data
+  #   ports:
+  #     - "6379:6379"
+  #   networks:
+  #     - phishly-network
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 3
+
+networks:
+  phishly-network:
+    driver: bridge
+
+# Uncomment when database and redis are ready
+# volumes:
+#   postgres-data:
+#   redis-data:
