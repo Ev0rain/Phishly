@@ -11,22 +11,22 @@
 
 **Phishly** is a phishing simulation platform for organizations to conduct security awareness training and analyze employee behavior through controlled phishing campaigns.
 
-[Quick Start](#-quick-start) • [Architecture](#-architecture) • [Team](#-team)
+[Quick Start](#quick-start) • [Architecture](#architecture) • [Team](#team)
 
 </div>
 
 ---
 
-## 🎯 Current Features
+## Current Features
 
-- 📊 **Admin Dashboard** - Web interface for campaign management and statistics
-- 📧 **Template System** - Create phishing email templates (in development)
-- 🎯 **Campaign Management** - Organize and track phishing campaigns (in development)
-- 🔐 **Authentication Ready** - Session-based auth infrastructure planned
+- **Admin Dashboard** - Web interface for campaign management and statistics
+- **Template System** - Create phishing email templates (in development)
+- **Campaign Management** - Organize and track phishing campaigns (in development)
+- **Authentication Ready** - Session-based auth infrastructure planned
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -79,9 +79,9 @@ python app.py
 
 ---
 
-## 📚 Documentation
+## Configuration
 
-### Configuration
+### Environment Setup
 
 The `.env` file contains all configuration variables:
 
@@ -112,19 +112,19 @@ ADMIN_DOMAIN=admin.internal.example
 
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
-| `SECRET_KEY` | Flask secret key for sessions | - | ✅ |
-| `DATABASE_URL` | PostgreSQL connection string | - | ✅ |
-| `REDIS_URL` | Redis connection string | `redis://localhost:6379/0` | ✅ |
-| `SMTP_HOST` | SMTP server hostname | - | ✅ |
-| `SMTP_PORT` | SMTP server port | `587` | ✅ |
-| `SMTP_USERNAME` | SMTP authentication username | - | ✅ |
-| `SMTP_PASSWORD` | SMTP authentication password | - | ✅ |
-| `PUBLIC_DOMAIN` | Public-facing phishing domain | - | ✅ |
-| `ADMIN_DOMAIN` | Internal admin panel domain | - | ✅ |
+| `SECRET_KEY` | Flask secret key for sessions | - | ✓ |
+| `DATABASE_URL` | PostgreSQL connection string | - | ✓ |
+| `REDIS_URL` | Redis connection string | `redis://localhost:6379/0` | ✓ |
+| `SMTP_HOST` | SMTP server hostname | - | ✓ |
+| `SMTP_PORT` | SMTP server port | `587` | ✓ |
+| `SMTP_USERNAME` | SMTP authentication username | - | ✓ |
+| `SMTP_PASSWORD` | SMTP authentication password | - | ✓ |
+| `PUBLIC_DOMAIN` | Public-facing phishing domain | - | ✓ |
+| `ADMIN_DOMAIN` | Internal admin panel domain | - | ✓ |
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 Phishly follows a **microservices architecture** with strict service boundaries:
 
@@ -186,7 +186,7 @@ The reverse proxy enforces this boundary. Admin endpoints are **never** exposed 
 
 ---
 
-## 🔐 Security
+## Security
 
 ### Authentication
 - Session-based authentication with Redis backend
@@ -209,7 +209,7 @@ The reverse proxy enforces this boundary. Admin endpoints are **never** exposed 
 
 ---
 
-## 🧪 Testing
+## Testing
 
 Run the test suite:
 
@@ -226,7 +226,7 @@ docker-compose exec webadmin pytest --cov=app tests/
 
 ---
 
-## 👥 Team
+## Team
 
 | Member | Role | Responsibilities |
 |--------|------|------------------|
@@ -238,27 +238,27 @@ docker-compose exec webadmin pytest --cov=app tests/
 
 ---
 
-## 📜 License
+## License
 
 This project is licensed under the **AGPL-3.0 License** - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## ⚠️ Legal Disclaimer
+## Legal Disclaimer
 
 **IMPORTANT:** This tool is designed exclusively for **authorized security awareness training** within organizations. 
 
-- ✅ Use only with explicit written authorization
-- ✅ For educational and security training purposes only
-- ❌ Do **NOT** use for real phishing attacks
-- ❌ Do **NOT** use outside authorized campaigns
-- ❌ Unauthorized use may violate laws and regulations
+- [ ✓ ] Use only with explicit written authorization
+- [ ✓ ] For educational and security training purposes only
+- [ X ] Do **NOT** use for real phishing attacks
+- [ X ] Do **NOT** use outside authorized campaigns
+- [ X ] Unauthorized use may violate laws and regulations
 
 Phishly is intended for legitimate cybersecurity training and awareness programs. Misuse of this software for malicious purposes is strictly prohibited and may result in criminal prosecution.
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Built with [Flask](https://flask.palletsprojects.com/)
 - Powered by [Celery](https://docs.celeryproject.org/)
@@ -270,7 +270,7 @@ Special thanks to **Lycée Guillaume Kroll (LGK)** for their support and resourc
 
 ---
 
-## 📞 Support
+## Support
 
 - **Documentation:** [docs/](docs/)
 - **Issues:** [GitHub Issues](https://github.com/phishly/phishly/issues)
