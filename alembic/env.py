@@ -21,7 +21,7 @@ project_root = Path(__file__).resolve().parents[1]   # folder that contains phis
 sys.path.insert(0, str(project_root))
 
 # 2. import your declarative base
-from Models.models import Base
+from db.models import Base
 
 # add your model's MetaData object here
 # for 'autogenerate' support
