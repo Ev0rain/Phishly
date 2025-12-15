@@ -74,30 +74,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 5000);
     }
 
-    // Handle "Remember me" checkbox
-    const rememberCheckbox = document.getElementById('remember');
-    const savedUsername = localStorage.getItem('phishly_username');
-
-    if (savedUsername) {
-        usernameInput.value = savedUsername;
-        rememberCheckbox.checked = true;
-    }
-
-    rememberCheckbox.addEventListener('change', function () {
-        if (this.checked) {
-            localStorage.setItem('phishly_username', usernameInput.value);
-        } else {
-            localStorage.removeItem('phishly_username');
-        }
-    });
-
-    // Update saved username when input changes
-    usernameInput.addEventListener('blur', function () {
-        if (rememberCheckbox.checked) {
-            localStorage.setItem('phishly_username', this.value);
-        }
-    });
-
     // Prevent multiple form submissions
     let isSubmitting = false;
     loginForm.addEventListener('submit', function (e) {

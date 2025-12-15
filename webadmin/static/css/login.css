@@ -1,4 +1,5 @@
 /* Phishly Admin Login - CSS Styles */
+/* Matches dashboard design system for cohesive look */
 
 :root {
     --primary-color: #2563eb;
@@ -16,7 +17,6 @@
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
 * {
@@ -27,50 +27,34 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-color: var(--bg-primary);
     color: var(--text-primary);
     display: flex;
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    overflow: hidden;
-    position: relative;
 }
 
 /* Login Container */
 .login-container {
-    position: relative;
-    z-index: 10;
     width: 100%;
-    max-width: 450px;
+    max-width: 420px;
     padding: 2rem;
 }
 
 /* Login Card */
 .login-card {
     background: var(--bg-secondary);
-    border-radius: 16px;
-    box-shadow: var(--shadow-xl), 0 0 0 1px rgba(0, 0, 0, 0.05);
-    padding: 3rem 2.5rem;
-    animation: slideUp 0.5s ease-out;
-}
-
-@keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-color);
+    padding: 2.5rem 2rem;
 }
 
 /* Login Header */
 .login-header {
     text-align: center;
-    margin-bottom: 2.5rem;
+    margin-bottom: 2rem;
 }
 
 .logo {
@@ -82,20 +66,19 @@ body {
 }
 
 .logo-icon {
-    font-size: 2.5rem;
-    animation: float 3s ease-in-out infinite;
+    font-size: 2rem;
 }
 
-@keyframes float {
+.logo h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
 
-    0%,
-    100% {
-        transform: translateY(0);
-    }
-
-    50% {
-        transform: translateY(-10px);
-    }
+.subtitle {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-weight: 500;
 }
 
 .logo h1 {
@@ -115,7 +98,7 @@ body {
 .login-form {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1.25rem;
 }
 
 .form-group {
@@ -132,18 +115,17 @@ body {
 
 .form-group input {
     width: 100%;
-    padding: 0.75rem 1rem;
-    border: 2px solid var(--border-color);
-    border-radius: 8px;
-    font-size: 0.95rem;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.9375rem;
     transition: all 0.2s ease;
-    background-color: var(--bg-primary);
+    background-color: var(--bg-secondary);
 }
 
 .form-group input:focus {
     outline: none;
     border-color: var(--primary-color);
-    background-color: var(--bg-secondary);
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
@@ -151,72 +133,33 @@ body {
     color: var(--text-secondary);
 }
 
-/* Form Options */
-.form-options {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.875rem;
-}
-
-.checkbox-container {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    cursor: pointer;
-    color: var(--text-secondary);
-}
-
-.checkbox-container input[type="checkbox"] {
-    width: 1rem;
-    height: 1rem;
-    cursor: pointer;
-    accent-color: var(--primary-color);
-}
-
-.forgot-password {
-    color: var(--primary-color);
-    text-decoration: none;
-    font-weight: 500;
-    transition: color 0.2s ease;
-}
-
-.forgot-password:hover {
-    color: var(--primary-dark);
-    text-decoration: underline;
-}
-
 /* Login Button */
 .login-button {
     width: 100%;
-    padding: 0.875rem 1.5rem;
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    padding: 0.75rem 1.5rem;
+    background-color: var(--primary-color);
     color: white;
     border: none;
-    border-radius: 8px;
-    font-size: 1rem;
+    border-radius: 6px;
+    font-size: 0.9375rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: var(--shadow-md);
+    transition: background-color 0.2s ease;
     margin-top: 0.5rem;
 }
 
 .login-button:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
-    background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary-color) 100%);
+    background-color: var(--primary-dark);
 }
 
 .login-button:active {
-    transform: translateY(0);
-    box-shadow: var(--shadow-sm);
+    transform: scale(0.98);
 }
 
 /* Login Footer */
 .login-footer {
-    margin-top: 2rem;
-    padding-top: 1.5rem;
+    margin-top: 1.75rem;
+    padding-top: 1.25rem;
     border-top: 1px solid var(--border-color);
     text-align: center;
 }
@@ -226,78 +169,19 @@ body {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    color: var(--warning-color);
-    font-size: 0.875rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
 }
 
 .warning-icon {
-    font-size: 1rem;
+    font-size: 0.875rem;
 }
 
 .version {
     color: var(--text-secondary);
-    font-size: 0.8rem;
-}
-
-/* Background Decoration */
-.background-decoration {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1;
-    pointer-events: none;
-    overflow: hidden;
-}
-
-.decoration-circle {
-    position: absolute;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-}
-
-.circle-1 {
-    width: 300px;
-    height: 300px;
-    top: -100px;
-    right: -100px;
-    animation: float-circle 20s ease-in-out infinite;
-}
-
-.circle-2 {
-    width: 200px;
-    height: 200px;
-    bottom: -50px;
-    left: -50px;
-    animation: float-circle 15s ease-in-out infinite reverse;
-}
-
-.circle-3 {
-    width: 150px;
-    height: 150px;
-    top: 50%;
-    left: 10%;
-    animation: float-circle 25s ease-in-out infinite;
-}
-
-@keyframes float-circle {
-
-    0%,
-    100% {
-        transform: translate(0, 0);
-    }
-
-    33% {
-        transform: translate(30px, -30px);
-    }
-
-    66% {
-        transform: translate(-30px, 30px);
-    }
+    font-size: 0.75rem;
 }
 
 /* Responsive Design */
@@ -311,7 +195,7 @@ body {
     }
 
     .logo h1 {
-        font-size: 1.75rem;
+        font-size: 1.5rem;
     }
 
     .form-options {
