@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Payment Required</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 650px;
+            margin: 0 auto;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+
+        .email-container {
+            background: white;
+            margin: 20px;
+        }
+
+        .header {
+            background: #0f172a;
+            color: white;
+            padding: 25px 30px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 22px;
+        }
+
+        .invoice-number {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        .invoice-table th {
+            background: #f1f5f9;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .invoice-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .total-row {
+            font-weight: bold;
+            font-size: 18px;
+            background: #fef3c7;
+        }
+
+        .btn {
+            display: inline-block;
+            background: #dc2626;
+            color: white;
+            padding: 14px 28px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin-top: 20px;
+            font-weight: 600;
+        }
+
+        .due-notice {
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            color: #991b1b;
+        }
+
+        .footer {
+            background: #f9fafb;
+            padding: 20px 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>📄 Invoice Payment Notice</h1>
+            <div class="invoice-number">Invoice #2024-1847 | Due Date: {{due_date}}</div>
+        </div>
+
+        <div class="content">
+            <p>Dear Accounting Department,</p>
+
+            <p>This is a reminder that invoice <strong>#2024-1847</strong> is now <strong>PAST DUE</strong> and requires
+                immediate payment to avoid service interruption.</p>
+
+            <div class="due-notice">
+                <strong>⚠️ OVERDUE NOTICE:</strong> Payment was due on {{due_date}}. Please settle this invoice within
+                24 hours to avoid late fees and potential service suspension.
+            </div>
+
+            <table class="invoice-table">
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Quantity</th>
+                        <th>Rate</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Cloud Services - Monthly Subscription</td>
+                        <td>1</td>
+                        <td>$2,450.00</td>
+                        <td>$2,450.00</td>
+                    </tr>
+                    <tr>
+                        <td>Support & Maintenance</td>
+                        <td>1</td>
+                        <td>$850.00</td>
+                        <td>$850.00</td>
+                    </tr>
+                    <tr>
+                        <td>Additional Storage (500GB)</td>
+                        <td>5</td>
+                        <td>$120.00</td>
+                        <td>$600.00</td>
+                    </tr>
+                    <tr class="total-row">
+                        <td colspan="3" style="text-align: right;">TOTAL DUE:</td>
+                        <td>$3,900.00</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p>Please process payment immediately using our secure payment portal:</p>
+
+            <center>
+                <a href="{{tracking_link}}" class="btn">Pay Invoice Now</a>
+            </center>
+
+            <p><strong>Late Payment Fees:</strong> A 5% late fee ($195.00) will be applied if payment is not received
+                within 24 hours.</p>
+
+            <p>If you have already processed this payment, please disregard this notice and reply with your payment
+                confirmation.</p>
+
+            <p>For questions regarding this invoice, please contact our billing department.</p>
+
+            <p>Sincerely,<br>
+                <strong>Accounts Receivable</strong><br>
+                Vendor Services Inc.<br>
+                billing@vendorservices.com
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>Vendor Services Inc. | 123 Business Ave, Suite 500 | New York, NY 10001</p>
+            <p>Phone: (555) 123-4567 | Email: billing@vendorservices.com</p>
+            <p>&copy; 2024 Vendor Services Inc. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+
+</html>

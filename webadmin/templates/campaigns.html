@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campaigns - Phishly Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/campaigns.css') }}">
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h1>🐟 Phishly</h1>
+            <p class="version">Admin Portal</p>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="/" class="nav-item">
+                <span class="icon">📊</span>
+                <span>Dashboard</span>
+            </a>
+            <a href="/campaigns" class="nav-item active">
+                <span class="icon">📧</span>
+                <span>Campaigns</span>
+            </a>
+            <a href="/templates" class="nav-item">
+                <span class="icon">📝</span>
+                <span>Templates</span>
+            </a>
+            <a href="/targets" class="nav-item">
+                <span class="icon">👥</span>
+                <span>Targets</span>
+            </a>
+            <a href="/analytics" class="nav-item">
+                <span class="icon">📈</span>
+                <span>Analytics</span>
+            </a>
+            <a href="/settings" class="nav-item">
+                <span class="icon">⚙️</span>
+                <span>Settings</span>
+            </a>
+            <a href="/about" class="nav-item">
+                <span class="icon">ℹ️</span>
+                <span>About</span>
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <span class="icon">👤</span>
+                <span>Admin User</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="content-header">
+            <div>
+                <h1>Campaigns</h1>
+                <p class="subtitle">Manage and monitor phishing simulation campaigns</p>
+            </div>
+            <button class="btn-primary" id="createCampaignBtn">
+                <span>+ New Campaign</span>
+            </button>
+        </div>
+
+        <!-- Campaigns Table -->
+        <div class="content-section">
+            <div class="table-container">
+                <table class="campaigns-table">
+                    <thead>
+                        <tr>
+                            <th>Campaign Name</th>
+                            <th>Email Template</th>
+                            <th>Target Group</th>
+                            <th>Emails Sent</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for campaign in campaigns %}
+                        <tr>
+                            <td>
+                                <div class="campaign-name">
+                                    <strong>{{ campaign.name }}</strong>
+                                </div>
+                            </td>
+                            <td>{{ campaign.template_name }}</td>
+                            <td>{{ campaign.group_name }}</td>
+                            <td>{{ campaign.emails_sent }}</td>
+                            <td>
+                                <span class="status-badge status-{{ campaign.status }}">
+                                    {{ campaign.status|capitalize }}
+                                </span>
+                            </td>
+                            <td>{{ campaign.created_at.strftime('%b %d, %Y') }}</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="btn-icon" title="View Details">
+                                        <span>👁️</span>
+                                    </button>
+                                    <button class="btn-icon" title="Edit">
+                                        <span>✏️</span>
+                                    </button>
+                                    <button class="btn-icon btn-danger" title="Delete">
+                                        <span>🗑️</span>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Create Campaign Modal -->
+    <div class="modal" id="createCampaignModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Campaign</h2>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            
+            <form id="createCampaignForm" class="modal-body">
+                <div class="form-group">
+                    <label for="campaignName">Campaign Name</label>
+                    <input 
+                        type="text" 
+                        id="campaignName" 
+                        name="campaign_name" 
+                        placeholder="e.g., Q1 Security Training"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="emailTemplate">Email Template</label>
+                    <select id="emailTemplate" name="template_id" required>
+                        <option value="">Select a template...</option>
+                        {% for template in templates %}
+                        <option value="{{ template.id }}">{{ template.name }} - {{ template.subject }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="targetGroup">Target Group</label>
+                    <select id="targetGroup" name="group_id" required>
+                        <option value="">Select a group...</option>
+                        {% for group in groups %}
+                        <option value="{{ group.id }}">{{ group.name }} ({{ group.size }} people)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="schedule_later" id="scheduleLater">
+                        Schedule for later
+                    </label>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" id="cancelBtn">Cancel</button>
+                    <button type="submit" class="btn-primary">Create Campaign</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/campaigns.js') }}"></script>
+</body>
+</html>

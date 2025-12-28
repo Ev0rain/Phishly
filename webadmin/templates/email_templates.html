@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Templates - Phishly Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/email_templates.css') }}">
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h1>🐟 Phishly</h1>
+            <p class="version">Admin Portal</p>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="/" class="nav-item">
+                <span class="icon">📊</span>
+                <span>Dashboard</span>
+            </a>
+            <a href="/campaigns" class="nav-item">
+                <span class="icon">📧</span>
+                <span>Campaigns</span>
+            </a>
+            <a href="/templates" class="nav-item active">
+                <span class="icon">📝</span>
+                <span>Templates</span>
+            </a>
+            <a href="/targets" class="nav-item">
+                <span class="icon">👥</span>
+                <span>Targets</span>
+            </a>
+            <a href="/analytics" class="nav-item">
+                <span class="icon">📈</span>
+                <span>Analytics</span>
+            </a>
+            <a href="/settings" class="nav-item">
+                <span class="icon">⚙️</span>
+                <span>Settings</span>
+            </a>
+            <a href="/about" class="nav-item">
+                <span class="icon">ℹ️</span>
+                <span>About</span>
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <span class="icon">👤</span>
+                <span>Admin User</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="content-header">
+            <div>
+                <h1>Email Templates</h1>
+                <p class="subtitle">Manage phishing email templates for your campaigns</p>
+            </div>
+            <button class="btn-primary" id="importTemplateBtn">
+                <span>+ Import Template</span>
+            </button>
+        </div>
+
+        <!-- Templates Grid -->
+        <div class="content-section">
+            <div class="templates-grid">
+                {% for template in templates %}
+                <div class="template-card" data-template-id="{{ template.id }}">
+                    <div class="template-header">
+                        <h3>{{ template.name }}</h3>
+                        <button class="btn-icon preview-btn" data-template-id="{{ template.id }}" title="Preview">
+                            👁️
+                        </button>
+                    </div>
+                    
+                    <div class="template-subject">
+                        <strong>Subject:</strong> {{ template.subject }}
+                    </div>
+                    
+                    <div class="template-tags">
+                        {% for tag in template.tags %}
+                        <span class="tag">{{ tag }}</span>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="template-meta">
+                        <div class="meta-item">
+                            <span class="meta-label">Created:</span>
+                            <span>{{ template.created_at.strftime('%b %d, %Y') }}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Used:</span>
+                            <span>{{ template.times_used }} times</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Last used:</span>
+                            <span>{{ template.last_used.strftime('%b %d, %Y') }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </main>
+
+    <!-- Import Template Modal -->
+    <div id="importTemplateModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Import Email Template</h2>
+                <button class="close-btn" id="closeImportModal">&times;</button>
+            </div>
+            
+            <form id="importTemplateForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="templateName">Template Name <span class="required">*</span></label>
+                    <input type="text" id="templateName" name="name" required 
+                           placeholder="e.g., CEO Email Compromise">
+                </div>
+                
+                <div class="form-group">
+                    <label for="templateSubject">Email Subject <span class="required">*</span></label>
+                    <input type="text" id="templateSubject" name="subject" required 
+                           placeholder="e.g., Urgent: Action Required">
+                </div>
+                
+                <div class="form-group">
+                    <label for="templateTags">Tags</label>
+                    <input type="text" id="templateTags" name="tags" 
+                           placeholder="e.g., executive, urgent, financial (comma-separated)">
+                    <small class="form-hint">Common tags: executive, urgent, financial, it-security, hr, support</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="templateFile">HTML File <span class="required">*</span></label>
+                    <div class="file-upload-area" id="fileUploadArea">
+                        <input type="file" id="templateFile" name="template_file" accept=".html" required>
+                        <div class="file-upload-label">
+                            <span class="upload-icon">📄</span>
+                            <p><strong>Click to upload</strong> or drag and drop</p>
+                            <p class="file-hint">HTML files only</p>
+                        </div>
+                        <div class="file-selected" id="fileSelected" style="display: none;">
+                            <span class="file-icon">✓</span>
+                            <span class="file-name"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="cancelImportBtn">Cancel</button>
+                    <button type="submit" class="btn-primary">Import Template</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div id="previewModal" class="modal preview-modal">
+        <div class="modal-content preview-content">
+            <div class="modal-header">
+                <div>
+                    <h2 id="previewTemplateName">Template Preview</h2>
+                    <p class="preview-subject" id="previewSubject"></p>
+                </div>
+                <button class="close-btn" id="closePreviewModal">&times;</button>
+            </div>
+            
+            <div class="preview-body">
+                <iframe id="previewFrame" sandbox="allow-same-origin"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notificationContainer"></div>
+
+    <script src="{{ url_for('static', filename='js/email_templates.js') }}"></script>
+</body>
+</html>
