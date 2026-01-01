@@ -21,6 +21,9 @@ RUN uv pip install --system -r requirements.txt
 
 # Copy worker code
 COPY tasks.py .
+COPY database.py .
+COPY email_renderer.py .
+COPY email_sender.py .
 
 # Set Python to run in unbuffered mode for better logging
 ENV PYTHONUNBUFFERED=1

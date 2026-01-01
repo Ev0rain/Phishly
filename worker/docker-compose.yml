@@ -9,13 +9,28 @@ services:
     restart: unless-stopped
 
     environment:
+      # Redis
       REDIS_HOST: redis
       REDIS_PORT: 6379
+
+      # PostgreSQL
       POSTGRES_HOST: postgres-db
       POSTGRES_PORT: 5432
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # SMTP
+      SMTP_MOCK: ${SMTP_MOCK:-true}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      SMTP_USE_SSL: ${SMTP_USE_SSL:-false}
+
+      # Phishing Domain
+      PHISHING_DOMAIN: ${PHISHING_DOMAIN:-phishing.example.com}
 
     networks:
       - net_data
