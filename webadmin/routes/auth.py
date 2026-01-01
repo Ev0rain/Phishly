@@ -20,9 +20,9 @@ def login():
     Handle login form submission
     TODO: Implement actual authentication when database and Redis are ready
     """
-    username = request.form.get("username")
-    password = request.form.get("password")
-    remember = request.form.get("remember")
+    _username = request.form.get("username")  # noqa: F841
+    _password = request.form.get("password")  # noqa: F841
+    _remember = request.form.get("remember")  # noqa: F841
 
     # Placeholder - no authentication yet
     # When ready, implement:

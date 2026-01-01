@@ -19,7 +19,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # 1. add project root to PYTHONPATH
-project_root = Path(__file__).resolve().parents[1]   # folder that contains phish/
+project_root = Path(__file__).resolve().parents[1]  # folder that contains phish/
 sys.path.insert(0, str(project_root))
 
 # 2. import your declarative base
@@ -32,13 +32,13 @@ from db.models import Base
 target_metadata = Base.metadata
 
 # 1. read connection URL from env
-connection_url = os.getenv('DATABASE_URL')
+connection_url = os.getenv("DATABASE_URL")
 if not connection_url:
-    raise RuntimeError('DATABASE_URL environment variable not set')
+    raise RuntimeError("DATABASE_URL environment variable not set")
 
 # 2. override the ini setting
 config = context.config  # Config object containing the .ini values
-config.set_main_option('sqlalchemy.url', connection_url)
+config.set_main_option("sqlalchemy.url", connection_url)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -84,9 +84,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

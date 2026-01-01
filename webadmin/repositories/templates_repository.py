@@ -11,9 +11,7 @@ class MockTemplatesRepository:
     """Mock data access layer for email templates"""
 
     # Directory where template HTML files are stored
-    TEMPLATES_DIR = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "email_templates"
-    )
+    TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "email_templates")
 
     @staticmethod
     def get_all_templates():
@@ -205,15 +203,17 @@ class MockTemplatesRepository:
     </div>
     <div class="content">
         <p>Dear Employee,</p>
-        
-        <p>We need your immediate attention regarding an important matter that requires your verification.</p>
-        
-        <p>Please click the button below to complete the required action within the next 24 hours to avoid any disruption to your account.</p>
-        
+
+        <p>We need your immediate attention regarding an important matter that
+        requires your verification.</p>
+
+        <p>Please click the button below to complete the required action within
+        the next 24 hours to avoid any disruption to your account.</p>
+
         <a href="{{tracking_link}}" class="btn">Verify Now</a>
-        
+
         <p>If you have any questions, please contact our support team.</p>
-        
+
         <p>Best regards,<br>IT Security Team</p>
     </div>
     <div class="footer">

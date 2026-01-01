@@ -5,7 +5,6 @@ Handles template listing, preview, and import functionality
 
 from flask import Blueprint, render_template, request, jsonify
 from repositories.templates_repository import MockTemplatesRepository
-import os
 from werkzeug.utils import secure_filename
 
 templates_bp = Blueprint("templates", __name__)
@@ -105,8 +104,6 @@ def import_template():
     )
 
     if success:
-        return jsonify(
-            {"success": True, "message": f"Template '{name}' imported successfully"}
-        )
+        return jsonify({"success": True, "message": f"Template '{name}' imported successfully"})
     else:
         return jsonify({"success": False, "message": message}), 500

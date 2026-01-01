@@ -78,9 +78,7 @@ class TargetList(Base):
     # Relationships
     created_by = relationship("AdminUser", back_populates="target_lists")
     target_list_members = relationship("TargetListMember", back_populates="target_list")
-    campaign_target_lists = relationship(
-        "CampaignTargetList", back_populates="target_list"
-    )
+    campaign_target_lists = relationship("CampaignTargetList", back_populates="target_list")
 
 
 class TargetListMember(Base):
@@ -155,9 +153,7 @@ class Campaign(Base):
     status = Column(
         String(50), default="draft", nullable=False
     )  # draft, scheduled, active, paused, completed
-    max_email_delay = Column(
-        Integer, default=180
-    )  # Maximum delay in seconds between emails
+    max_email_delay = Column(Integer, default=180)  # Maximum delay in seconds between emails
     start_date = Column(DateTime)
     end_date = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -167,9 +163,7 @@ class Campaign(Base):
     created_by = relationship("AdminUser", back_populates="campaigns")
     email_template = relationship("EmailTemplate", back_populates="campaigns")
     landing_page = relationship("LandingPage", back_populates="campaigns")
-    campaign_target_lists = relationship(
-        "CampaignTargetList", back_populates="campaign"
-    )
+    campaign_target_lists = relationship("CampaignTargetList", back_populates="campaign")
     campaign_targets = relationship("CampaignTarget", back_populates="campaign")
 
 
