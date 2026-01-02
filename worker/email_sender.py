@@ -304,6 +304,13 @@ SMTP_CONFIGS = {
         "smtp_use_tls": True,
         "smtp_use_ssl": False,
     },
+    "mailjet": {
+        "smtp_host": "in-v3.mailjet.com",
+        "smtp_port": 587,
+        "smtp_use_tls": True,
+        "smtp_use_ssl": False,
+        # Alternative ports: 465 (SSL), 2525 (TLS)
+    },
     "amazon-ses": {
         "smtp_host": "email-smtp.us-east-1.amazonaws.com",  # Region-specific
         "smtp_port": 587,
