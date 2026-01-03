@@ -1,0 +1,232 @@
+# Phishly - Unified Docker Compose Configuration
+# This file orchestrates all microservices for the Phishly phishing simulation platform
+
+services:
+  # ============================================
+  # PostgreSQL Database Service
+  # ============================================
+  postgres:
+    image: docker.io/library/postgres:17
+    container_name: postgres-db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    networks:
+      - net_admin
+      - net_data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ============================================
+  # Redis Cache & Message Broker Service
+  # DB 0: Flask sessions
+  # DB 1: Celery broker
+  # DB 2: Celery results
+  # ============================================
+  redis:
+    image: docker.io/library/redis:7-alpine
+    container_name: redis-cache
+    restart: unless-stopped
+
+    command: redis-server /usr/local/etc/redis/redis.conf
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+
+    networks:
+      - net_data
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ============================================
+  # WebAdmin Service (Flask Dashboard)
+  # ============================================
+  webadmin:
+    build:
+      context: ./webadmin
+      dockerfile: Dockerfile
+      target: development  # Use 'production' for production builds
+    container_name: phishly-webadmin
+    restart: unless-stopped
+
+    ports:
+      - "8006:8006"
+
+    environment:
+      # Flask Configuration
+      FLASK_APP: app.py
+      FLASK_DEBUG: ${FLASK_DEBUG:-True}
+      FLASK_PORT: 8006
+      SECRET_KEY: ${SECRET_KEY}
+
+      # Database Configuration
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}
+
+      # Redis Configuration
+      REDIS_URL: redis://redis-cache:6379/0
+
+    volumes:
+      # Mount code for hot-reload in development
+      - ./webadmin:/app
+      # Exclude Python cache
+      - /app/__pycache__
+      - /app/.pytest_cache
+
+    networks:
+      - net_admin
+      - net_data
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8006/health').read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ============================================
+  # Celery Worker Service (Email Sending)
+  # ============================================
+  celery-worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: celery-worker
+    restart: unless-stopped
+
+    environment:
+      # Redis Configuration
+      REDIS_HOST: redis-cache
+      REDIS_PORT: 6379
+
+      # PostgreSQL Configuration
+      POSTGRES_HOST: postgres-db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # SMTP Configuration
+      SMTP_MOCK: ${SMTP_MOCK:-true}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      SMTP_USE_SSL: ${SMTP_USE_SSL:-false}
+
+      # Phishing Domain Configuration
+      PHISHING_DOMAIN: ${PHISHING_DOMAIN:-phishing.example.com}
+
+    networks:
+      - net_data
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    command: celery -A tasks worker --loglevel=info
+
+  # ============================================
+  # Caddy Reverse Proxy Service
+  # ============================================
+  caddy:
+    image: caddy:latest
+    container_name: phishly-reverse-proxy
+    restart: unless-stopped
+
+    ports:
+      # HTTPS for phishing domain (public)
+      - "443:443"
+      # WebAdmin port (internal)
+      - "8006:8006"
+
+    volumes:
+      # Mount Caddyfile configuration
+      - ./reverse-proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+
+      # Caddy data (for automatic HTTPS)
+      - caddy_data:/data
+
+      # Caddy config storage
+      - caddy_config:/config
+
+      # Mount SSL certificates for phishing domains
+      - ./reverse-proxy/ssl/phish:/ssl/phish:ro
+
+      # Mount self-signed certificate for admin GUI
+      - ./reverse-proxy/ssl/webadmin:/ssl/webadmin:ro
+
+    networks:
+      - net_public
+      - net_admin
+      - net_data
+
+    depends_on:
+      - webadmin
+
+# ============================================
+# Network Definitions
+# ============================================
+networks:
+  net_public:
+    name: net_public
+    driver: bridge
+    # This network connects to the public internet
+    # Used for phishing landing pages
+
+  net_admin:
+    name: net_admin
+    driver: bridge
+    # Internal network for admin GUI
+    # Accessible only from school LAN/VPN
+
+  net_data:
+    name: net_data
+    driver: bridge
+    # Strictly private network for backend services
+    # PostgreSQL, Redis, and Celery workers
+
+# ============================================
+# Volume Definitions
+# ============================================
+volumes:
+  postgres_data:
+    name: phishly_postgres_data
+  redis_data:
+    name: phishly_redis_data
+  caddy_data:
+    name: phishly_caddy_data
+  caddy_config:
+    name: phishly_caddy_config
