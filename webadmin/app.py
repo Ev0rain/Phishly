@@ -53,12 +53,16 @@ def create_app(config=None):
     from routes.auth import auth_bp
     from routes.campaigns import campaigns_bp
     from routes.email_templates import templates_bp
+    from routes.targets import targets_bp
+    from routes.analytics import analytics_bp
 
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(about_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(campaigns_bp)
     app.register_blueprint(templates_bp)
+    app.register_blueprint(targets_bp)
+    app.register_blueprint(analytics_bp)
 
     # Health check endpoint for Docker
     @app.route("/health")

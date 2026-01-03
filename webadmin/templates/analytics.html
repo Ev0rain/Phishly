@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics - Phishly Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/analytics.css') }}">
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h1>🐟 Phishly</h1>
+            <p class="version">Admin Portal</p>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="/" class="nav-item">
+                <span class="icon">📊</span>
+                <span>Dashboard</span>
+            </a>
+            <a href="/campaigns" class="nav-item">
+                <span class="icon">📧</span>
+                <span>Campaigns</span>
+            </a>
+            <a href="/templates" class="nav-item">
+                <span class="icon">📝</span>
+                <span>Templates</span>
+            </a>
+            <a href="/targets" class="nav-item">
+                <span class="icon">👥</span>
+                <span>Targets</span>
+            </a>
+            <a href="/analytics" class="nav-item active">
+                <span class="icon">📈</span>
+                <span>Analytics</span>
+            </a>
+            <a href="/settings" class="nav-item">
+                <span class="icon">⚙️</span>
+                <span>Settings</span>
+            </a>
+            <a href="/about" class="nav-item">
+                <span class="icon">ℹ️</span>
+                <span>About</span>
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <span class="icon">👤</span>
+                <span>Admin User</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Page Header with Filters -->
+        <div class="analytics-header">
+            <div>
+                <h1>Analytics & Insights</h1>
+                <p class="subtitle">Comprehensive performance metrics and trends</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn-secondary" id="filterBtn">
+                    <span>🔍 Filters</span>
+                </button>
+                <button class="btn-secondary" id="exportBtn">
+                    <span>📥 Export Data</span>
+                </button>
+                <button class="btn-secondary" id="refreshBtn">
+                    <span>🔄 Refresh</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter Panel (Collapsible) -->
+        <div class="filter-panel" id="filterPanel">
+            <div class="filter-content">
+                <div class="filter-grid">
+                    <div class="filter-item">
+                        <label for="filterCampaign">Campaign</label>
+                        <select id="filterCampaign">
+                            <option value="">All Campaigns</option>
+                            {% for campaign in all_campaigns %}
+                            <option value="{{ campaign.id }}">{{ campaign.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label for="filterTemplate">Email Template</label>
+                        <select id="filterTemplate">
+                            <option value="">All Templates</option>
+                            {% for template in all_templates %}
+                            <option value="{{ template.id }}">{{ template.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label for="filterGroup">Target Group</label>
+                        <select id="filterGroup">
+                            <option value="">All Groups</option>
+                            {% for group in all_groups %}
+                            <option value="{{ group.id }}">{{ group.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label for="filterDateFrom">Date From</label>
+                        <input type="date" id="filterDateFrom">
+                    </div>
+                    <div class="filter-item">
+                        <label for="filterDateTo">Date To</label>
+                        <input type="date" id="filterDateTo">
+                    </div>
+                    <div class="filter-item">
+                        <label for="filterTimeRange">Time Range</label>
+                        <select id="filterTimeRange">
+                            <option value="7">Last 7 Days</option>
+                            <option value="30" selected>Last 30 Days</option>
+                            <option value="90">Last 90 Days</option>
+                            <option value="365">Last Year</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="filter-actions">
+                    <button class="btn-secondary" id="clearFiltersBtn">Clear Filters</button>
+                    <button class="btn-primary" id="applyFiltersBtn">Apply Filters</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Performance Indicators -->
+        <section class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-icon">📧</div>
+                <div class="kpi-content">
+                    <div class="kpi-value">{{ "{:,}".format(overall_stats.total_emails_sent) }}</div>
+                    <div class="kpi-label">Total Emails Sent</div>
+                    <div class="kpi-change positive">+{{ overall_stats.campaigns_this_month }} campaigns this month</div>
+                </div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-icon">📖</div>
+                <div class="kpi-content">
+                    <div class="kpi-value">{{ "%.1f"|format(overall_stats.average_open_rate) }}%</div>
+                    <div class="kpi-label">Average Open Rate</div>
+                    <div class="kpi-detail">Industry avg: 35-40%</div>
+                </div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-icon">🖱️</div>
+                <div class="kpi-content">
+                    <div class="kpi-value">{{ "%.1f"|format(overall_stats.average_click_rate) }}%</div>
+                    <div class="kpi-label">Average Click Rate</div>
+                    <div class="kpi-detail">Industry avg: 12-15%</div>
+                </div>
+            </div>
+
+            <div class="kpi-card warning">
+                <div class="kpi-icon">⚠️</div>
+                <div class="kpi-content">
+                    <div class="kpi-value">{{ "%.1f"|format(overall_stats.average_submission_rate) }}%</div>
+                    <div class="kpi-label">Credentials Submitted</div>
+                    <div class="kpi-detail">{{ overall_stats.total_credentials_captured }} total submissions</div>
+                </div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-icon">🎯</div>
+                <div class="kpi-content">
+                    <div class="kpi-value">{{ overall_stats.total_campaigns }}</div>
+                    <div class="kpi-label">Total Campaigns</div>
+                    <div class="kpi-change positive">{{ overall_stats.active_campaigns }} currently active</div>
+                </div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-icon">👥</div>
+                <div class="kpi-content">
+                    <div class="kpi-value">{{ overall_stats.total_targets }}</div>
+                    <div class="kpi-label">Total Targets</div>
+                    <div class="kpi-detail">Across all campaigns</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Time Series Chart -->
+        <section class="chart-section">
+            <div class="section-header">
+                <h3>Activity Trend</h3>
+                <div class="chart-controls">
+                    <button class="chart-btn active" data-days="7">7D</button>
+                    <button class="chart-btn" data-days="30">30D</button>
+                    <button class="chart-btn" data-days="90">90D</button>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="timeSeriesChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Campaign Performance Table -->
+        <section class="content-section">
+            <div class="section-header">
+                <h3>Campaign Performance</h3>
+                <a href="/campaigns" class="link">View All Campaigns →</a>
+            </div>
+            <div class="table-container">
+                <table class="analytics-table">
+                    <thead>
+                        <tr>
+                            <th>Campaign Name</th>
+                            <th>Status</th>
+                            <th>Sent</th>
+                            <th>Opened</th>
+                            <th>Clicked</th>
+                            <th>Submitted</th>
+                            <th>Open %</th>
+                            <th>Click %</th>
+                            <th>Submit %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for campaign in campaign_performance[:8] %}
+                        <tr>
+                            <td><strong>{{ campaign.name }}</strong></td>
+                            <td><span class="status-badge status-{{ campaign.status }}">{{ campaign.status|capitalize }}</span></td>
+                            <td>{{ campaign.emails_sent }}</td>
+                            <td>{{ campaign.emails_opened }}</td>
+                            <td>{{ campaign.links_clicked }}</td>
+                            <td class="text-danger">{{ campaign.credentials_submitted }}</td>
+                            <td>{{ campaign.open_rate }}%</td>
+                            <td>{{ campaign.click_rate }}%</td>
+                            <td class="text-danger">{{ campaign.submission_rate }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Department Breakdown -->
+        <section class="content-section">
+            <div class="section-header">
+                <h3>Department Risk Assessment</h3>
+                <p class="section-subtitle">Vulnerability scores by department (higher = more risk)</p>
+            </div>
+            <div class="department-grid">
+                {% for dept in department_breakdown[:6] %}
+                <div class="department-card">
+                    <div class="dept-header">
+                        <h4>{{ dept.department }}</h4>
+                        <span class="risk-badge risk-{{ 'high' if dept.risk_score > 15 else 'medium' if dept.risk_score > 8 else 'low' }}">
+                            Risk: {{ dept.risk_score }}%
+                        </span>
+                    </div>
+                    <div class="dept-stats">
+                        <div class="dept-stat">
+                            <span class="stat-label">Targets</span>
+                            <span class="stat-value">{{ dept.total_targets }}</span>
+                        </div>
+                        <div class="dept-stat">
+                            <span class="stat-label">Opened</span>
+                            <span class="stat-value">{{ dept.open_rate }}%</span>
+                        </div>
+                        <div class="dept-stat">
+                            <span class="stat-label">Clicked</span>
+                            <span class="stat-value">{{ dept.click_rate }}%</span>
+                        </div>
+                        <div class="dept-stat">
+                            <span class="stat-label">Submitted</span>
+                            <span class="stat-value text-danger">{{ dept.submission_rate }}%</span>
+                        </div>
+                    </div>
+                    <div class="risk-bar">
+                        <div class="risk-fill" style="width: {{ dept.risk_score }}%; background: {{ '#ef4444' if dept.risk_score > 15 else '#f59e0b' if dept.risk_score > 8 else '#10b981' }}"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- Two Column Layout: Template Effectiveness & Device Breakdown -->
+        <div class="two-column-layout">
+            <!-- Template Effectiveness -->
+            <section class="content-section">
+                <div class="section-header">
+                    <h3>Template Effectiveness</h3>
+                </div>
+                <div class="table-container">
+                    <table class="analytics-table compact">
+                        <thead>
+                            <tr>
+                                <th>Template</th>
+                                <th>Used</th>
+                                <th>Sent</th>
+                                <th>Score</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for template in template_effectiveness[:6] %}
+                            <tr>
+                                <td><strong>{{ template.template_name }}</strong></td>
+                                <td>{{ template.times_used }}x</td>
+                                <td>{{ template.emails_sent }}</td>
+                                <td>
+                                    <span class="effectiveness-score score-{{ 'high' if template.effectiveness_score > 60 else 'medium' if template.effectiveness_score > 40 else 'low' }}">
+                                        {{ template.effectiveness_score }}%
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Device/Browser Breakdown with Pie Charts -->
+            <section class="content-section">
+                <div class="section-header">
+                    <h3>Device & Browser Distribution</h3>
+                </div>
+                <div class="chart-grid">
+                    <div class="mini-chart">
+                        <h4>By Device</h4>
+                        <canvas id="deviceChart"></canvas>
+                    </div>
+                    <div class="mini-chart">
+                        <h4>By Browser</h4>
+                        <canvas id="browserChart"></canvas>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Top Vulnerable Users -->
+        <section class="content-section">
+            <div class="section-header">
+                <h3>⚠️ Most Vulnerable Users</h3>
+                <p class="section-subtitle">Users who require additional security training</p>
+            </div>
+            <div class="table-container">
+                <table class="analytics-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Department</th>
+                            <th>Received</th>
+                            <th>Opened</th>
+                            <th>Clicked</th>
+                            <th>Submitted</th>
+                            <th>Risk Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in vulnerable_users %}
+                        <tr>
+                            <td><strong>{{ user.email }}</strong></td>
+                            <td>{{ user.department }}</td>
+                            <td>{{ user.emails_received }}</td>
+                            <td>{{ user.emails_opened }}</td>
+                            <td>{{ user.links_clicked }}</td>
+                            <td class="text-danger">{{ user.credentials_submitted }}</td>
+                            <td>
+                                <span class="risk-badge risk-{{ 'high' if user.vulnerability_score > 60 else 'medium' if user.vulnerability_score > 40 else 'low' }}">
+                                    {{ user.vulnerability_score }}%
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Recent Events Timeline -->
+        <section class="content-section">
+            <div class="section-header">
+                <h3>Recent Activity</h3>
+                <button class="btn-secondary btn-sm" id="refreshEventsBtn">Refresh</button>
+            </div>
+            <div class="events-timeline">
+                {% for event in recent_events[:15] %}
+                <div class="event-item event-{{ event.event_type }}">
+                    <div class="event-icon">
+                        {% if event.event_type == 'email_sent' %}📧
+                        {% elif event.event_type == 'email_opened' %}📖
+                        {% elif event.event_type == 'link_clicked' %}🖱️
+                        {% elif event.event_type == 'form_submitted' %}📝
+                        {% elif event.event_type == 'credentials_captured' %}⚠️
+                        {% endif %}
+                    </div>
+                    <div class="event-content">
+                        <div class="event-header">
+                            <strong>{{ event.event_type.replace('_', ' ').title() }}</strong>
+                            <span class="event-time">{{ event.timestamp.strftime('%H:%M:%S') }}</span>
+                        </div>
+                        <div class="event-details">
+                            {{ event.target_email }} • {{ event.campaign_name }}
+                        </div>
+                        <div class="event-meta">
+                            {{ event.device }} • {{ event.browser }} • {{ event.ip_address }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Hidden data for JavaScript -->
+    <script>
+        window.analyticsData = {
+            deviceBreakdown: {{ device_breakdown | tojson }},
+            browserBreakdown: {{ browser_breakdown | tojson }},
+            osBreakdown: {{ os_breakdown | tojson }}
+        };
+    </script>
+
+    <script src="{{ url_for('static', filename='js/analytics.js') }}"></script>
+</body>
+</html>
