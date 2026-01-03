@@ -13,44 +13,44 @@
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
         <div class="sidebar-header">
-            <h1>🐟 Phishly</h1>
+            <h1>Phishly</h1>
             <p class="version">Admin Portal</p>
         </div>
         
         <nav class="sidebar-nav">
             <a href="/" class="nav-item">
-                <span class="icon">📊</span>
+                <span class="icon">▤</span>
                 <span>Dashboard</span>
             </a>
             <a href="/campaigns" class="nav-item">
-                <span class="icon">📧</span>
+                <span class="icon">✉</span>
                 <span>Campaigns</span>
             </a>
             <a href="/templates" class="nav-item">
-                <span class="icon">📝</span>
+                <span class="icon">☰</span>
                 <span>Templates</span>
             </a>
             <a href="/targets" class="nav-item">
-                <span class="icon">👥</span>
+                <span class="icon">◉</span>
                 <span>Targets</span>
             </a>
             <a href="/analytics" class="nav-item active">
-                <span class="icon">📈</span>
+                <span class="icon">▦</span>
                 <span>Analytics</span>
             </a>
             <a href="/settings" class="nav-item">
-                <span class="icon">⚙️</span>
+                <span class="icon">⚙</span>
                 <span>Settings</span>
             </a>
             <a href="/about" class="nav-item">
-                <span class="icon">ℹ️</span>
+                <span class="icon">ⓘ</span>
                 <span>About</span>
             </a>
         </nav>
         
         <div class="sidebar-footer">
             <div class="user-info">
-                <span class="icon">👤</span>
+                <span class="icon">●</span>
                 <span>Admin User</span>
             </div>
         </div>
@@ -136,7 +136,7 @@
         <!-- Key Performance Indicators -->
         <section class="kpi-grid">
             <div class="kpi-card">
-                <div class="kpi-icon">📧</div>
+                <div class="kpi-icon">✉</div>
                 <div class="kpi-content">
                     <div class="kpi-value">{{ "{:,}".format(overall_stats.total_emails_sent) }}</div>
                     <div class="kpi-label">Total Emails Sent</div>
@@ -145,7 +145,7 @@
             </div>
 
             <div class="kpi-card">
-                <div class="kpi-icon">📖</div>
+                <div class="kpi-icon">▣</div>
                 <div class="kpi-content">
                     <div class="kpi-value">{{ "%.1f"|format(overall_stats.average_open_rate) }}%</div>
                     <div class="kpi-label">Average Open Rate</div>
@@ -154,7 +154,7 @@
             </div>
 
             <div class="kpi-card">
-                <div class="kpi-icon">🖱️</div>
+                <div class="kpi-icon">◉</div>
                 <div class="kpi-content">
                     <div class="kpi-value">{{ "%.1f"|format(overall_stats.average_click_rate) }}%</div>
                     <div class="kpi-label">Average Click Rate</div>
@@ -163,7 +163,7 @@
             </div>
 
             <div class="kpi-card warning">
-                <div class="kpi-icon">⚠️</div>
+                <div class="kpi-icon">⚠</div>
                 <div class="kpi-content">
                     <div class="kpi-value">{{ "%.1f"|format(overall_stats.average_submission_rate) }}%</div>
                     <div class="kpi-label">Credentials Submitted</div>
@@ -172,7 +172,7 @@
             </div>
 
             <div class="kpi-card">
-                <div class="kpi-icon">🎯</div>
+                <div class="kpi-icon">◎</div>
                 <div class="kpi-content">
                     <div class="kpi-value">{{ overall_stats.total_campaigns }}</div>
                     <div class="kpi-label">Total Campaigns</div>
@@ -181,7 +181,7 @@
             </div>
 
             <div class="kpi-card">
-                <div class="kpi-icon">👥</div>
+                <div class="kpi-icon">◎</div>
                 <div class="kpi-content">
                     <div class="kpi-value">{{ overall_stats.total_targets }}</div>
                     <div class="kpi-label">Total Targets</div>
@@ -389,11 +389,11 @@
                 {% for event in recent_events[:15] %}
                 <div class="event-item event-{{ event.event_type }}">
                     <div class="event-icon">
-                        {% if event.event_type == 'email_sent' %}📧
-                        {% elif event.event_type == 'email_opened' %}📖
-                        {% elif event.event_type == 'link_clicked' %}🖱️
-                        {% elif event.event_type == 'form_submitted' %}📝
-                        {% elif event.event_type == 'credentials_captured' %}⚠️
+                        {% if event.event_type == 'email_sent' %}✉
+                        {% elif event.event_type == 'email_opened' %}▣
+                        {% elif event.event_type == 'link_clicked' %}◉
+                        {% elif event.event_type == 'form_submitted' %}☰
+                        {% elif event.event_type == 'credentials_captured' %}⚠
                         {% endif %}
                     </div>
                     <div class="event-content">

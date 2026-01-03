@@ -11,44 +11,44 @@
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
         <div class="sidebar-header">
-            <h1>🐟 Phishly</h1>
+            <h1>Phishly</h1>
             <p class="version">Admin Portal</p>
         </div>
         
         <nav class="sidebar-nav">
             <a href="/" class="nav-item">
-                <span class="icon">📊</span>
+                <span class="icon">▤</span>
                 <span>Dashboard</span>
             </a>
             <a href="/campaigns" class="nav-item">
-                <span class="icon">📧</span>
+                <span class="icon">✉</span>
                 <span>Campaigns</span>
             </a>
             <a href="/templates" class="nav-item">
-                <span class="icon">📝</span>
+                <span class="icon">☰</span>
                 <span>Templates</span>
             </a>
             <a href="/targets" class="nav-item active">
-                <span class="icon">👥</span>
+                <span class="icon">◉</span>
                 <span>Targets</span>
             </a>
             <a href="/analytics" class="nav-item">
-                <span class="icon">📈</span>
+                <span class="icon">▦</span>
                 <span>Analytics</span>
             </a>
             <a href="/settings" class="nav-item">
-                <span class="icon">⚙️</span>
+                <span class="icon">⚙</span>
                 <span>Settings</span>
             </a>
             <a href="/about" class="nav-item">
-                <span class="icon">ℹ️</span>
+                <span class="icon">ⓘ</span>
                 <span>About</span>
             </a>
         </nav>
         
         <div class="sidebar-footer">
             <div class="user-info">
-                <span class="icon">👤</span>
+                <span class="icon">●</span>
                 <span>Admin User</span>
             </div>
         </div>
@@ -74,14 +74,14 @@
         <!-- Statistics Summary -->
         <div class="stats-summary">
             <div class="stat-item">
-                <span class="stat-icon">👥</span>
+                <span class="stat-icon">◉</span>
                 <div class="stat-info">
                     <span class="stat-value">{{ total_groups }}</span>
                     <span class="stat-label">Total Groups</span>
                 </div>
             </div>
             <div class="stat-item">
-                <span class="stat-icon">📧</span>
+                <span class="stat-icon">✉</span>
                 <div class="stat-info">
                     <span class="stat-value">{{ total_targets }}</span>
                     <span class="stat-label">Total Targets</span>
@@ -122,13 +122,13 @@
                             <td>
                                 <div class="action-buttons">
                                     <button class="btn-icon view-btn" title="View Members" data-group-id="{{ group.id }}">
-                                        <span>👁️</span>
+                                        <span>◉</span>
                                     </button>
                                     <button class="btn-icon edit-btn" title="Edit Group" data-group-id="{{ group.id }}">
-                                        <span>✏️</span>
+                                        <span>✎</span>
                                     </button>
                                     <button class="btn-icon btn-danger delete-btn" title="Delete Group" data-group-id="{{ group.id }}">
-                                        <span>🗑️</span>
+                                        <span>✕</span>
                                     </button>
                                 </div>
                             </td>
