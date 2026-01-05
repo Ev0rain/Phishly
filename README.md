@@ -19,10 +19,12 @@
 
 ## Current Features
 
-- **Admin Dashboard** - Web interface for campaign management and statistics
-- **Template System** - Create phishing email templates (in development)
-- **Campaign Management** - Organize and track phishing campaigns (in development)
-- **Authentication Ready** - Session-based auth infrastructure planned
+- **Admin Dashboard** - Modern web interface with dark/light theme support
+- **Campaign Management** - Create and track phishing campaigns with real-time statistics
+- **Email Templates** - Pre-built templates (CEO Compromise, Password Reset, Invoice Request)
+- **Target Groups** - Organize and manage employee target lists
+- **Analytics & Insights** - Interactive charts and performance metrics
+- **Settings Panel** - Theme customization and user preferences
 
 ---
 
@@ -56,24 +58,48 @@ Before you begin, ensure you have the following installed:
    ```
 
 4. **Access the platform**
-   - **Admin Dashboard:** `https://admin.internal.example:8006` (internal network only)
-   - **Phishing Pages:** `https://phishing.example.com` (public-facing)
+   - **Admin Dashboard:** `http://localhost:8006` (development) or `https://admin.internal.example:8006` (production)
+   - **Phishing Pages:** `https://phishing.example.com` (production only)
 
 ### Development Setup
 
 For local development without Docker:
 
-```bash
+```powershell
+# Windows PowerShell
 # Create virtual environment
 python -m venv venv
-.\venv\Scripts\activate  # Windows
-source venv/bin/activate # Linux/macOS
+.\venv\Scripts\activate
 
 # Install dependencies
+cd webadmin
 pip install -r requirements.txt
 
+# Generate SECRET_KEY
+python -c "import secrets; print(secrets.token_hex(32))"
+
+# Create .env file (or use auto-generated key in dev mode)
+# Copy the generated key to .env file
+
 # Run development server
+python app.py
+# Access at http://localhost:8006
+```
+
+```bash
+# Linux/macOS
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate
+
+# Install dependencies
 cd webadmin
+pip install -r requirements.txt
+
+# Generate SECRET_KEY
+python -c "import secrets; print(secrets.token_hex(32))"
+
+# Run development server
 python app.py
 ```
 
@@ -87,40 +113,46 @@ The `.env` file contains all configuration variables:
 
 ```env
 # Flask Configuration
-SECRET_KEY=your-secret-key-here
-FLASK_DEBUG=False
-FLASK_PORT=8006
+SECRET_KEY=your-64-character-hex-string-here
+FLASK_DEBUG=True
 
-# Database
-DATABASE_URL=postgresql://user:password@db:5432/phishly_db
+# Database (PostgreSQL)
+POSTGRES_DB=phishly
+POSTGRES_USER=phishly_user
+POSTGRES_PASSWORD=your-secure-password-here
+DATABASE_URL=postgresql://phishly_user:password@postgres-db:5432/phishly
 
-# Redis
-REDIS_URL=redis://redis:6379/0
+# Redis (Session Storage & Message Queue)
+REDIS_URL=redis://redis-cache:6379/0
 
 # SMTP Configuration
-SMTP_HOST=smtp.mailjet.com
+SMTP_MOCK=true
+SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USERNAME=your-username
-SMTP_PASSWORD=your-password
+SMTP_USER=your-email@example.com
+SMTP_PASSWORD=your-smtp-password
+SMTP_USE_TLS=true
+SMTP_USE_SSL=false
 
-# Domains
-PUBLIC_DOMAIN=phishing.example.com
-ADMIN_DOMAIN=admin.internal.example
+# Phishing Domain
+PHISHING_DOMAIN=phishing.example.com
 ```
 
 ### Environment Variables
 
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
-| `SECRET_KEY` | Flask secret key for sessions | - | ✓ |
+| `SECRET_KEY` | Flask secret key (64-char hex) | Auto-generated in dev | ✓ |
+| `FLASK_DEBUG` | Enable debug mode | `True` | - |
 | `DATABASE_URL` | PostgreSQL connection string | - | ✓ |
-| `REDIS_URL` | Redis connection string | `redis://localhost:6379/0` | ✓ |
-| `SMTP_HOST` | SMTP server hostname | - | ✓ |
+| `REDIS_URL` | Redis connection string | `redis://redis-cache:6379/0` | ✓ |
+| `SMTP_MOCK` | Mock email sending (dev mode) | `true` | - |
+| `SMTP_HOST` | SMTP server hostname | `smtp.gmail.com` | ✓ |
 | `SMTP_PORT` | SMTP server port | `587` | ✓ |
-| `SMTP_USERNAME` | SMTP authentication username | - | ✓ |
+| `SMTP_USER` | SMTP authentication username | - | ✓ |
 | `SMTP_PASSWORD` | SMTP authentication password | - | ✓ |
-| `PUBLIC_DOMAIN` | Public-facing phishing domain | - | ✓ |
-| `ADMIN_DOMAIN` | Internal admin panel domain | - | ✓ |
+| `SMTP_USE_TLS` | Use TLS encryption | `true` | - |
+| `PHISHING_DOMAIN` | Public-facing phishing domain | - | ✓ |
 
 ---
 
@@ -137,7 +169,7 @@ Phishly follows a **microservices architecture** with strict service boundaries:
                                     ┌─────────▼──────────┐       ┌────────▼─────────┐
                                     │   Webadmin Service │       │   Phish Service  │
                                     │   (Flask Admin)    │       │  (Landing Pages) │
-                                    │   Port: 8006       │       │   Port: 8007     │
+                                    │   Port: 8006       │       │   (In Progress)  │
                                     └─────────┬──────────┘       └────────┬─────────┘
                                               │                           │
                                               └───────────┬───────────────┘
@@ -160,9 +192,9 @@ Phishly follows a **microservices architecture** with strict service boundaries:
 | Service | Technology | Purpose | Port |
 |---------|-----------|---------|------|
 | **webadmin** | Flask 3.0 | Admin dashboard & REST API | 8006 |
-| **phish** | Flask 3.0 | Public phishing landing pages | 8007 |
+| **phish** | Flask 3.0 | Public phishing landing pages | (planned) |
 | **worker** | Celery | Async task processing (emails) | - |
-| **db** | PostgreSQL 15 | Data persistence | 5432 |
+| **db** | PostgreSQL 17 | Data persistence | 5432 |
 | **redis** | Redis 7 | Message queue & session storage | 6379 |
 | **reverse-proxy** | Caddy 2 | HTTPS termination & routing | 80/443 |
 
@@ -189,15 +221,15 @@ The reverse proxy enforces this boundary. Admin endpoints are **never** exposed 
 ## Security
 
 ### Authentication
-- Session-based authentication with Redis backend
+- Session-based authentication (planned with Redis backend)
 - Password hashing using werkzeug (PBKDF2-SHA256)
 - HttpOnly, Secure, and SameSite cookie flags
-- 2-hour session timeout
+- 2-hour session timeout (planned)
 
 ### Protection Mechanisms
-- CSRF protection on all forms (Flask-WTF)
-- Rate limiting on login endpoints
-- SQL injection prevention (SQLAlchemy ORM)
+- CSRF protection ready (Flask-WTF integration planned)
+- Rate limiting on login endpoints (planned)
+- SQL injection prevention (SQLAlchemy ORM ready)
 - XSS protection via Jinja2 auto-escaping
 - Input validation and sanitization
 
