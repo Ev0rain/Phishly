@@ -43,9 +43,54 @@ def create_app(config=None):
     app.config["SECRET_KEY"] = secret_key
     app.config["DEBUG"] = is_debug
 
+    # Database Configuration (PostgreSQL via SQLAlchemy)
+    # Format: postgresql://user:password@host:port/database
+    database_url = os.environ.get("DATABASE_URL")
+    if database_url:
+        app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+        app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "pool_pre_ping": True,  # Verify connections before using
+            "pool_recycle": 300,    # Recycle connections after 5 minutes
+        }
+        print(f"✅ Database configured: {database_url.split('@')[1] if '@' in database_url else 'configured'}")
+    else:
+        print("⚠️  WARNING: DATABASE_URL not set. Database features disabled.")
+        app.config["SQLALCHEMY_DATABASE_URI"] = None
+
+    # Redis Configuration (for Flask-Session)
+    redis_url = os.environ.get("REDIS_URL")
+    if redis_url:
+        # Flask-Session configuration
+        app.config["SESSION_TYPE"] = "redis"
+        app.config["SESSION_PERMANENT"] = True
+        app.config["PERMANENT_SESSION_LIFETIME"] = 7200  # 2 hours
+        app.config["SESSION_USE_SIGNER"] = True  # Sign session cookies
+        app.config["SESSION_KEY_PREFIX"] = "phishly:session:"
+        
+        # Redis connection will be initialized when Flask-Session is set up
+        app.config["SESSION_REDIS_URL"] = redis_url
+        
+        # Cookie security settings
+        app.config["SESSION_COOKIE_HTTPONLY"] = True   # Prevent JavaScript access
+        app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # CSRF protection
+        
+        # Only use Secure flag in production (HTTPS)
+        if not is_debug:
+            app.config["SESSION_COOKIE_SECURE"] = True
+        
+        print(f"✅ Redis configured: {redis_url}")
+    else:
+        print("⚠️  WARNING: REDIS_URL not set. Using filesystem sessions (not recommended for production).")
+        app.config["SESSION_TYPE"] = "filesystem"
+
     # Custom configuration override
     if config:
         app.config.update(config)
+
+    # Initialize extensions (when database/redis are available)
+    # Note: SQLAlchemy and Flask-Session will be initialized when implemented
+    # For now, these are just configuration placeholders
 
     # Register blueprints
     from routes.dashboard import dashboard_bp
@@ -69,7 +114,22 @@ def create_app(config=None):
     # Health check endpoint for Docker
     @app.route("/health")
     def health():
-        return {"status": "healthy", "service": "webadmin"}, 200
+        """Docker health check endpoint"""
+        status = {
+            "status": "healthy",
+            "service": "webadmin",
+            "debug_mode": app.config.get("DEBUG", False)
+        }
+        
+        # Optional: Add database connectivity check
+        if app.config.get("SQLALCHEMY_DATABASE_URI"):
+            status["database"] = "configured"
+        
+        # Optional: Add Redis connectivity check
+        if app.config.get("SESSION_REDIS_URL"):
+            status["redis"] = "configured"
+        
+        return status, 200
 
     return app
 
@@ -84,6 +144,13 @@ if __name__ == "__main__":
 
     app = create_app()
 
+    print("\n" + "=" * 70)
+    print(f"🚀 Phishly WebAdmin starting on http://0.0.0.0:{port}")
+    print(f"   Debug Mode: {'ENABLED' if is_debug else 'DISABLED'}")
+    print(f"   Environment: {'Development' if is_debug else 'Production'}")
+    print("=" * 70 + "\n")
+
     # WARNING: Never use debug=True in production!
     # For production, deploy with: gunicorn -w 4 -b 0.0.0.0:8006 app:create_app()
     app.run(host="0.0.0.0", port=port, debug=is_debug)
+
