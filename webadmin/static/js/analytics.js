@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', function () {
     initializeTimeSeriesChart(30); // Default 30 days
     initializeDeviceChart();
     initializeBrowserChart();
-    
+
     // Re-render charts when theme changes
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     });
-    
+
     observer.observe(document.documentElement, {
         attributes: true,
         attributeFilter: ['data-theme']
@@ -126,7 +126,7 @@ function initializeTimeSeriesChart(days) {
             if (timeSeriesChart) {
                 timeSeriesChart.destroy();
             }
-            
+
             const colors = getChartColors();
 
             timeSeriesChart = new Chart(ctx, {
@@ -240,7 +240,7 @@ function initializeDeviceChart() {
 
     const data = window.analyticsData.deviceBreakdown;
     const colors = getChartColors();
-    
+
     if (deviceChart) {
         deviceChart.destroy();
     }
@@ -294,7 +294,7 @@ function initializeBrowserChart() {
 
     const data = window.analyticsData.browserBreakdown;
     const colors = getChartColors();
-    
+
     if (browserChart) {
         browserChart.destroy();
     }

@@ -162,11 +162,11 @@
     transition: all 0.3s ease;
 }
 
-.toggle-switch input:checked + .toggle-slider {
+.toggle-switch input:checked+.toggle-slider {
     background-color: var(--primary-color);
 }
 
-.toggle-switch input:checked + .toggle-slider:before {
+.toggle-switch input:checked+.toggle-slider:before {
     transform: translateX(22px);
 }
 
@@ -343,11 +343,11 @@
         align-items: flex-start;
         gap: 1rem;
     }
-    
+
     .theme-toggle {
         width: 100%;
     }
-    
+
     .theme-option {
         flex: 1;
     }

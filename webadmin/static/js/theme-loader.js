@@ -4,10 +4,10 @@
  * to prevent flash of wrong theme on page load
  */
 
-(function() {
+(function () {
     // Get saved theme immediately (before page renders)
     const savedTheme = localStorage.getItem('phishly-theme') || 'light';
-    
+
     // Apply theme attribute to html element
     document.documentElement.setAttribute('data-theme', savedTheme);
 })();

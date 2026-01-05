@@ -3,10 +3,10 @@
  * Handles theme switching and preference persistence
  */
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Theme Management
     initTheme();
-    
+
     // Toggle switches
     initToggleSwitches();
 });
@@ -17,14 +17,14 @@ document.addEventListener('DOMContentLoaded', function() {
 function initTheme() {
     // Get saved theme or default to light
     const savedTheme = localStorage.getItem('phishly-theme') || 'light';
-    
+
     // Apply theme
     applyTheme(savedTheme);
-    
+
     // Set up theme toggle buttons
     const themeButtons = document.querySelectorAll('.theme-option');
     themeButtons.forEach(button => {
-        button.addEventListener('click', function() {
+        button.addEventListener('click', function () {
             const theme = this.dataset.theme;
             applyTheme(theme);
             localStorage.setItem('phishly-theme', theme);
@@ -39,7 +39,7 @@ function initTheme() {
 function applyTheme(theme) {
     // Set theme attribute on document
     document.documentElement.setAttribute('data-theme', theme);
-    
+
     // Update active button
     const themeButtons = document.querySelectorAll('.theme-option');
     themeButtons.forEach(button => {
@@ -49,7 +49,7 @@ function applyTheme(theme) {
             button.classList.remove('active');
         }
     });
-    
+
     // Store preference
     localStorage.setItem('phishly-theme', theme);
 }
@@ -59,16 +59,16 @@ function applyTheme(theme) {
  */
 function initToggleSwitches() {
     const toggles = document.querySelectorAll('.toggle-switch input');
-    
+
     toggles.forEach((toggle, index) => {
         // Load saved state (if any)
         const savedState = localStorage.getItem(`toggle-${index}`);
         if (savedState !== null) {
             toggle.checked = savedState === 'true';
         }
-        
+
         // Save state on change
-        toggle.addEventListener('change', function() {
+        toggle.addEventListener('change', function () {
             localStorage.setItem(`toggle-${index}`, this.checked);
         });
     });
