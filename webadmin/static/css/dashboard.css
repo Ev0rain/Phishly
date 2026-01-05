@@ -208,7 +208,9 @@ body {
 }
 
 .btn-primary:hover {
-    background-color: hsl(var(--primary) / 0.9);
+    background-color: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
 }
 
 .btn-secondary {
