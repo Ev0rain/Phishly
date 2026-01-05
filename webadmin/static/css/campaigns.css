@@ -345,3 +345,66 @@
         width: 100%;
     }
 }
+
+/* ============================================
+   DARK THEME STYLES
+   ============================================ */
+
+[data-theme="dark"] .campaigns-grid {
+    background: transparent;
+}
+
+[data-theme="dark"] .campaign-card {
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .campaign-card:hover {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+[data-theme="dark"] .modal-overlay {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="dark"] .modal-content {
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .modal-header {
+    border-bottom-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .modal-footer {
+    border-top-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .form-group label {
+    color: hsl(var(--foreground));
+}
+
+[data-theme="dark"] .form-input,
+[data-theme="dark"] .form-select,
+[data-theme="dark"] .form-textarea {
+    background: hsl(var(--background));
+    border-color: hsl(var(--border));
+    color: hsl(var(--foreground));
+}
+
+[data-theme="dark"] .form-input:focus,
+[data-theme="dark"] .form-select:focus,
+[data-theme="dark"] .form-textarea:focus {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+[data-theme="dark"] .btn-secondary {
+    background: hsl(var(--secondary));
+    border-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .btn-secondary:hover {
+    background: hsl(var(--accent));
+}

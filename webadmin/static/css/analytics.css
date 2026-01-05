@@ -608,3 +608,168 @@
 .events-timeline::-webkit-scrollbar-thumb:hover {
     background: var(--text-secondary);
 }
+
+/* ============================================
+   DARK THEME STYLES
+   ============================================ */
+
+[data-theme="dark"] .filter-panel {
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .filter-header {
+    border-bottom-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .filter-content {
+    background: hsl(var(--card));
+}
+
+[data-theme="dark"] .filter-row label {
+    color: hsl(var(--foreground));
+}
+
+[data-theme="dark"] .filter-input,
+[data-theme="dark"] .filter-select {
+    background: hsl(var(--background));
+    border-color: hsl(var(--border));
+    color: hsl(var(--foreground));
+}
+
+[data-theme="dark"] .filter-input:focus,
+[data-theme="dark"] .filter-select:focus {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+[data-theme="dark"] .metrics-grid {
+    background: transparent;
+}
+
+[data-theme="dark"] .metric-card {
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .kpi-card {
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .kpi-card:hover {
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+[data-theme="dark"] .kpi-card.warning {
+    border-color: hsl(var(--warning));
+    background: linear-gradient(to bottom, hsl(38 92% 15%), hsl(var(--card)));
+}
+
+[data-theme="dark"] .kpi-icon {
+    background: hsl(var(--background));
+}
+
+[data-theme="dark"] .chart-section {
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .chart-btn {
+    background: hsl(var(--background));
+    border-color: hsl(var(--border));
+    color: hsl(var(--foreground));
+}
+
+[data-theme="dark"] .chart-btn:hover {
+    background: hsl(var(--accent));
+}
+
+[data-theme="dark"] .chart-btn.active {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    border-color: hsl(var(--primary));
+}
+
+[data-theme="dark"] .content-section {
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .chart-grid {
+    background: transparent;
+}
+
+[data-theme="dark"] .chart-card {
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .data-table-card {
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .data-table {
+    background: transparent;
+    border-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .data-table thead {
+    background: hsl(222.2 84% 6%);
+}
+
+[data-theme="dark"] .data-table tbody tr {
+    border-bottom-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .data-table tbody tr:hover {
+    background: hsl(var(--accent));
+}
+
+[data-theme="dark"] .insight-box {
+    background: hsl(var(--card));
+    border-left-color: hsl(var(--primary));
+}
+
+[data-theme="dark"] .events-timeline {
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .timeline-event {
+    border-left-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .timeline-event.event-opened {
+    border-left-color: hsl(var(--primary));
+}
+
+[data-theme="dark"] .timeline-event.event-clicked {
+    border-left-color: hsl(var(--warning));
+}
+
+[data-theme="dark"] .timeline-event.event-submitted {
+    border-left-color: hsl(var(--destructive));
+}
+
+[data-theme="dark"] .btn-secondary {
+    background: hsl(var(--secondary));
+    border-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .btn-secondary:hover {
+    background: hsl(var(--accent));
+}
+
+[data-theme="dark"] .events-timeline::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+}
+
+[data-theme="dark"] .events-timeline::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+}
+
+[data-theme="dark"] .events-timeline::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+}

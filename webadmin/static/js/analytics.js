@@ -8,11 +8,50 @@ let timeSeriesChart = null;
 let deviceChart = null;
 let browserChart = null;
 
+/**
+ * Get current theme
+ */
+function getCurrentTheme() {
+    return document.documentElement.getAttribute('data-theme') || 'light';
+}
+
+/**
+ * Get theme-aware colors for charts
+ */
+function getChartColors() {
+    const isDark = getCurrentTheme() === 'dark';
+    return {
+        text: isDark ? 'hsl(210, 40%, 98%)' : 'hsl(222.2, 84%, 4.9%)',
+        grid: isDark ? 'hsl(217.2, 32.6%, 17.5%)' : 'hsl(214.3, 31.8%, 91.4%)',
+        background: isDark ? 'hsl(222.2, 84%, 8%)' : 'white'
+    };
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     // Initialize charts
     initializeTimeSeriesChart(30); // Default 30 days
     initializeDeviceChart();
     initializeBrowserChart();
+    
+    // Re-render charts when theme changes
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+                // Re-initialize all charts with new theme colors
+                if (timeSeriesChart) {
+                    const days = 30; // Use current range
+                    initializeTimeSeriesChart(days);
+                }
+                if (deviceChart) initializeDeviceChart();
+                if (browserChart) initializeBrowserChart();
+            }
+        });
+    });
+    
+    observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['data-theme']
+    });
 
     // Filter panel toggle
     const filterBtn = document.getElementById('filterBtn');
@@ -87,6 +126,8 @@ function initializeTimeSeriesChart(days) {
             if (timeSeriesChart) {
                 timeSeriesChart.destroy();
             }
+            
+            const colors = getChartColors();
 
             timeSeriesChart = new Chart(ctx, {
                 type: 'line',
@@ -137,6 +178,9 @@ function initializeTimeSeriesChart(days) {
                     plugins: {
                         legend: {
                             position: 'top',
+                            labels: {
+                                color: colors.text
+                            }
                         },
                         tooltip: {
                             callbacks: {
@@ -154,13 +198,21 @@ function initializeTimeSeriesChart(days) {
                         y: {
                             beginAtZero: true,
                             ticks: {
-                                precision: 0
+                                precision: 0,
+                                color: colors.text
+                            },
+                            grid: {
+                                color: colors.grid
                             }
                         },
                         x: {
                             ticks: {
                                 maxRotation: 45,
-                                minRotation: 45
+                                minRotation: 45,
+                                color: colors.text
+                            },
+                            grid: {
+                                color: colors.grid
                             }
                         }
                     }
@@ -187,6 +239,11 @@ function initializeDeviceChart() {
     if (!ctx) return;
 
     const data = window.analyticsData.deviceBreakdown;
+    const colors = getChartColors();
+    
+    if (deviceChart) {
+        deviceChart.destroy();
+    }
 
     deviceChart = new Chart(ctx, {
         type: 'doughnut',
@@ -200,7 +257,7 @@ function initializeDeviceChart() {
                     '#f59e0b',
                 ],
                 borderWidth: 2,
-                borderColor: '#ffffff'
+                borderColor: colors.background
             }]
         },
         options: {
@@ -209,6 +266,9 @@ function initializeDeviceChart() {
             plugins: {
                 legend: {
                     position: 'bottom',
+                    labels: {
+                        color: colors.text
+                    }
                 },
                 tooltip: {
                     callbacks: {
@@ -233,6 +293,11 @@ function initializeBrowserChart() {
     if (!ctx) return;
 
     const data = window.analyticsData.browserBreakdown;
+    const colors = getChartColors();
+    
+    if (browserChart) {
+        browserChart.destroy();
+    }
 
     browserChart = new Chart(ctx, {
         type: 'doughnut',
@@ -248,7 +313,7 @@ function initializeBrowserChart() {
                     '#8b5cf6',
                 ],
                 borderWidth: 2,
-                borderColor: '#ffffff'
+                borderColor: colors.background
             }]
         },
         options: {
@@ -257,6 +322,9 @@ function initializeBrowserChart() {
             plugins: {
                 legend: {
                     position: 'bottom',
+                    labels: {
+                        color: colors.text
+                    }
                 },
                 tooltip: {
                     callbacks: {
