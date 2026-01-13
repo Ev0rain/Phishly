@@ -9,31 +9,33 @@ document.addEventListener('DOMContentLoaded', function () {
     const passwordInput = document.getElementById('password');
     const loginButton = document.querySelector('.login-button');
 
-    // Form submission handler (placeholder - no backend yet)
-    loginForm.addEventListener('submit', function (e) {
-        e.preventDefault();
+    // Prevent multiple form submissions
+    let isSubmitting = false;
 
+    // Form submission handler (combined validation + submit prevention)
+    loginForm.addEventListener('submit', function (e) {
         const username = usernameInput.value.trim();
         const password = passwordInput.value.trim();
 
         // Basic validation
         if (!username || !password) {
+            e.preventDefault();
             showMessage('Please fill in all fields', 'error');
             return;
+        }
+
+        // Prevent multiple submissions
+        if (isSubmitting) {
+            e.preventDefault();
+            return false;
         }
 
         // Show loading state
         loginButton.textContent = 'Signing In...';
         loginButton.disabled = true;
+        isSubmitting = true;
 
-        // Simulate API call (remove when backend is ready)
-        setTimeout(() => {
-            // For now, just show a message
-            // In production, this will make an actual API call
-            showMessage('Backend authentication not yet implemented', 'error');
-            loginButton.textContent = 'Sign In';
-            loginButton.disabled = false;
-        }, 1000);
+        // Form will submit to backend naturally
     });
 
     // Input validation feedback
@@ -73,19 +75,6 @@ document.addEventListener('DOMContentLoaded', function () {
             messageEl.classList.remove('show');
         }, 5000);
     }
-
-    // Prevent multiple form submissions
-    let isSubmitting = false;
-    loginForm.addEventListener('submit', function (e) {
-        if (isSubmitting) {
-            e.preventDefault();
-            return false;
-        }
-        isSubmitting = true;
-        setTimeout(() => {
-            isSubmitting = false;
-        }, 2000);
-    });
 
     // Add keyboard navigation enhancements
     usernameInput.addEventListener('keypress', function (e) {

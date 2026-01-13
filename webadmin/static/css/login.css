@@ -205,31 +205,39 @@ body {
     }
 }
 
-/* Error/Success Messages (for future implementation) */
-.message {
+/* Flash Messages (Alert) */
+.alert {
     padding: 0.75rem 1rem;
     border-radius: 8px;
     margin-bottom: 1.5rem;
     font-size: 0.875rem;
     font-weight: 500;
-    display: none;
-}
-
-.message.error {
-    background-color: #fee;
-    color: var(--danger-color);
-    border: 1px solid #fcc;
-}
-
-.message.success {
-    background-color: #efe;
-    color: var(--success-color);
-    border: 1px solid #cfc;
-}
-
-.message.show {
     display: block;
     animation: slideDown 0.3s ease-out;
+}
+
+.alert-error {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+.alert-success {
+    background-color: #d1fae5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+.alert-info {
+    background-color: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+}
+
+.alert-warning {
+    background-color: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fcd34d;
 }
 
 @keyframes slideDown {

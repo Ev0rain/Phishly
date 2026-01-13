@@ -73,8 +73,9 @@ services:
     container_name: phishly-webadmin
     restart: unless-stopped
 
-    ports:
-      - "8006:8006"
+    # No direct port exposure - accessed through reverse proxy only
+    expose:
+      - "8006"
 
     environment:
       # Flask Configuration
@@ -92,6 +93,8 @@ services:
     volumes:
       # Mount code for hot-reload in development
       - ./webadmin:/app
+      # Mount shared db models directory
+      - ./db:/app/db
       # Exclude Python cache
       - /app/__pycache__
       - /app/.pytest_cache

@@ -4,14 +4,16 @@ Handles template listing, preview, and import functionality
 """
 
 from flask import Blueprint, render_template, request, jsonify
-from repositories.templates_repository import MockTemplatesRepository
+from flask_login import login_required
+from repositories.templates_repository import TemplatesRepository
 from werkzeug.utils import secure_filename
 
 templates_bp = Blueprint("templates", __name__)
-templates_repo = MockTemplatesRepository()
+templates_repo = TemplatesRepository()
 
 
 @templates_bp.route("/templates")
+@login_required
 def index():
     """Display all email templates"""
     templates = templates_repo.get_all_templates()
@@ -25,6 +27,7 @@ def index():
 
 
 @templates_bp.route("/templates/<int:template_id>/preview")
+@login_required
 def preview_template(template_id):
     """Return the HTML content of a template for preview"""
     template = templates_repo.get_template_by_id(template_id)
@@ -32,7 +35,7 @@ def preview_template(template_id):
     if not template:
         return jsonify({"error": "Template not found"}), 404
 
-    html_content = templates_repo.get_template_html(template["filename"])
+    html_content = templates_repo.get_template_html(template_id)
 
     return jsonify(
         {
@@ -45,6 +48,7 @@ def preview_template(template_id):
 
 
 @templates_bp.route("/templates/import", methods=["POST"])
+@login_required
 def import_template():
     """
     Import a new email template
@@ -87,23 +91,21 @@ def import_template():
             400,
         )
 
-    # Process tags
-    tags = [tag.strip() for tag in tags_string.split(",") if tag.strip()]
+    # Get sender information (use defaults for now)
+    from_email = request.form.get("from_email", "noreply@company.com")
+    from_name = request.form.get("from_name", "Company Name")
 
-    # Generate safe filename
-    safe_name = secure_filename(name.lower().replace(" ", "_"))
-    filename = f"{safe_name}.html"
-
-    # Save template
-    success, message = templates_repo.save_template(
+    # Save template (metadata to DB, HTML to disk)
+    success, message, template_id = templates_repo.save_template(
         name=name,
         subject=subject,
-        tags=tags,
+        from_email=from_email,
+        from_name=from_name,
         html_content=html_content,
-        filename=filename,
+        created_by_id=current_user.id if hasattr(current_user, 'id') else None
     )
 
     if success:
-        return jsonify({"success": True, "message": f"Template '{name}' imported successfully"})
+        return jsonify({"success": True, "message": f"Template '{name}' imported successfully", "template_id": template_id})
     else:
         return jsonify({"success": False, "message": message}), 500

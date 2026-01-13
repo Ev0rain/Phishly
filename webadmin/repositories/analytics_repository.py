@@ -1,344 +1,535 @@
 """
-Mock repository for analytics data
-This returns hardcoded metrics and statistics until the database is ready
+Analytics Repository - Real database implementation
+
+Handles all analytics-related database queries with heavy aggregations
 """
 
+from repositories.base_repository import BaseRepository
+from database import db, get_event_type_id
+from db.models import (
+    Campaign, CampaignTarget, CampaignTargetList,
+    EmailTemplate, TargetList, Target, Department,
+    Event, EventType, EmailJob
+)
+from sqlalchemy import func, case, and_, distinct
 from datetime import datetime, timedelta
-import random
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-class MockAnalyticsRepository:
-    """Mock data access layer for analytics and metrics"""
+class AnalyticsRepository(BaseRepository):
+    """Real database repository for analytics with aggregations"""
 
     @staticmethod
     def get_overall_stats():
         """Return overall platform statistics"""
-        return {
-            "total_campaigns": 28,
-            "active_campaigns": 5,
-            "total_emails_sent": 4850,
-            "total_targets": 342,
-            "average_open_rate": 42.3,
-            "average_click_rate": 18.7,
-            "average_submission_rate": 8.2,
-            "total_form_submissions": 398,
-            "total_credentials_captured": 245,
-            "campaigns_this_month": 8,
-            "emails_sent_this_month": 1240,
-            "most_effective_template": "Password Reset Request",
-            "least_effective_template": "Survey Invitation",
-            "riskiest_department": "Sales",
-            "safest_department": "IT & Security",
-        }
+        try:
+            # Get event type IDs
+            event_sent_id = get_event_type_id('email_sent')
+            event_opened_id = get_event_type_id('email_opened')
+            event_clicked_id = get_event_type_id('link_clicked')
+            event_submitted_id = get_event_type_id('form_submitted')
+            event_captured_id = get_event_type_id('credentials_captured')
+
+            # Total campaigns
+            total_campaigns = db.session.query(func.count(Campaign.id)).scalar() or 0
+            active_campaigns = db.session.query(func.count(Campaign.id))\
+                .filter(Campaign.status == 'active').scalar() or 0
+
+            # Total unique targets
+            total_targets = db.session.query(func.count(Target.id)).scalar() or 0
+
+            # Total emails sent
+            total_emails_sent = db.session.query(func.count(Event.id))\
+                .filter(Event.event_type_id == event_sent_id).scalar() if event_sent_id else 0
+
+            # Get unique campaign_target_ids for each event type (to avoid double counting)
+            emails_opened = db.session.query(func.count(distinct(Event.campaign_target_id)))\
+                .filter(Event.event_type_id == event_opened_id).scalar() if event_opened_id else 0
+
+            links_clicked = db.session.query(func.count(distinct(Event.campaign_target_id)))\
+                .filter(Event.event_type_id == event_clicked_id).scalar() if event_clicked_id else 0
+
+            credentials_submitted = db.session.query(func.count(distinct(Event.campaign_target_id)))\
+                .filter(Event.event_type_id == event_submitted_id).scalar() if event_submitted_id else 0
+
+            total_form_submissions = credentials_submitted  # Same as submitted for now
+
+            # Calculate rates
+            avg_open_rate = round((emails_opened / total_emails_sent * 100), 1) if total_emails_sent > 0 else 0.0
+            avg_click_rate = round((links_clicked / total_emails_sent * 100), 1) if total_emails_sent > 0 else 0.0
+            avg_submission_rate = round((credentials_submitted / total_emails_sent * 100), 1) if total_emails_sent > 0 else 0.0
+
+            # This month stats
+            month_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            campaigns_this_month = db.session.query(func.count(Campaign.id))\
+                .filter(Campaign.created_at >= month_start).scalar() or 0
+
+            emails_sent_this_month = db.session.query(func.count(Event.id))\
+                .filter(Event.event_type_id == event_sent_id, Event.created_at >= month_start).scalar() if event_sent_id else 0
+
+            # Get most/least effective templates
+            most_effective_template = "N/A"
+            least_effective_template = "N/A"
+
+            template_stats = AnalyticsRepository.get_template_effectiveness()
+            if template_stats:
+                most_effective_template = template_stats[0]["template_name"]  # Already sorted by effectiveness
+                least_effective_template = template_stats[-1]["template_name"]
+
+            # Get riskiest/safest departments
+            riskiest_department = "N/A"
+            safest_department = "N/A"
+
+            dept_stats = AnalyticsRepository.get_department_breakdown()
+            if dept_stats:
+                riskiest_department = dept_stats[0]["department"]  # Already sorted by risk
+                safest_department = dept_stats[-1]["department"]
+
+            return {
+                "total_campaigns": total_campaigns,
+                "active_campaigns": active_campaigns,
+                "total_emails_sent": total_emails_sent or 0,
+                "total_targets": total_targets,
+                "average_open_rate": avg_open_rate,
+                "average_click_rate": avg_click_rate,
+                "average_submission_rate": avg_submission_rate,
+                "total_form_submissions": total_form_submissions,
+                "total_credentials_captured": credentials_submitted,
+                "campaigns_this_month": campaigns_this_month,
+                "emails_sent_this_month": emails_sent_this_month,
+                "most_effective_template": most_effective_template,
+                "least_effective_template": least_effective_template,
+                "riskiest_department": riskiest_department,
+                "safest_department": safest_department,
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting overall stats: {e}")
+            return {
+                "total_campaigns": 0,
+                "active_campaigns": 0,
+                "total_emails_sent": 0,
+                "total_targets": 0,
+                "average_open_rate": 0.0,
+                "average_click_rate": 0.0,
+                "average_submission_rate": 0.0,
+                "total_form_submissions": 0,
+                "total_credentials_captured": 0,
+                "campaigns_this_month": 0,
+                "emails_sent_this_month": 0,
+                "most_effective_template": "N/A",
+                "least_effective_template": "N/A",
+                "riskiest_department": "N/A",
+                "safest_department": "N/A",
+            }
 
     @staticmethod
     def get_campaign_performance():
         """Return performance metrics for all campaigns"""
-        campaigns = []
-        campaign_names = [
-            "Q4 Security Training",
-            "Executive Phishing Test",
-            "Finance Department Assessment",
-            "Company-wide Awareness Test",
-            "Sales Team Training",
-            "IT Department Validation",
-            "HR Policy Update Test",
-            "New Hire Training Campaign",
-        ]
+        try:
+            event_sent_id = get_event_type_id('email_sent')
+            event_opened_id = get_event_type_id('email_opened')
+            event_clicked_id = get_event_type_id('link_clicked')
+            event_submitted_id = get_event_type_id('form_submitted')
 
-        for i in range(8):
-            sent = random.randint(80, 250)
-            opened = int(sent * random.uniform(0.30, 0.65))
-            clicked = int(opened * random.uniform(0.25, 0.55))
-            submitted = int(clicked * random.uniform(0.30, 0.70))
+            # Get all campaigns
+            campaigns = db.session.query(Campaign).all()
 
-            campaigns.append(
-                {
-                    "id": i + 1,
-                    "name": campaign_names[i],
-                    "status": random.choice(
-                        ["completed", "active", "active", "completed", "completed"]
-                    ),
+            result = []
+            for campaign in campaigns:
+                # Count events for this campaign
+                sent = db.session.query(func.count(Event.id))\
+                    .join(CampaignTarget, Event.campaign_target_id == CampaignTarget.id)\
+                    .filter(CampaignTarget.campaign_id == campaign.id,
+                            Event.event_type_id == event_sent_id).scalar() if event_sent_id else 0
+
+                opened = db.session.query(func.count(distinct(Event.campaign_target_id)))\
+                    .join(CampaignTarget, Event.campaign_target_id == CampaignTarget.id)\
+                    .filter(CampaignTarget.campaign_id == campaign.id,
+                            Event.event_type_id == event_opened_id).scalar() if event_opened_id else 0
+
+                clicked = db.session.query(func.count(distinct(Event.campaign_target_id)))\
+                    .join(CampaignTarget, Event.campaign_target_id == CampaignTarget.id)\
+                    .filter(CampaignTarget.campaign_id == campaign.id,
+                            Event.event_type_id == event_clicked_id).scalar() if event_clicked_id else 0
+
+                submitted = db.session.query(func.count(distinct(Event.campaign_target_id)))\
+                    .join(CampaignTarget, Event.campaign_target_id == CampaignTarget.id)\
+                    .filter(CampaignTarget.campaign_id == campaign.id,
+                            Event.event_type_id == event_submitted_id).scalar() if event_submitted_id else 0
+
+                # Get template name
+                template_name = "N/A"
+                if campaign.email_template_id:
+                    template = db.session.query(EmailTemplate)\
+                        .filter(EmailTemplate.id == campaign.email_template_id).first()
+                    if template:
+                        template_name = template.name
+
+                # Get target group (first one if multiple)
+                target_group = "N/A"
+                target_list_link = db.session.query(CampaignTargetList)\
+                    .filter(CampaignTargetList.campaign_id == campaign.id).first()
+                if target_list_link:
+                    target_list = db.session.query(TargetList)\
+                        .filter(TargetList.id == target_list_link.target_list_id).first()
+                    if target_list:
+                        target_group = target_list.name
+
+                result.append({
+                    "id": campaign.id,
+                    "name": campaign.name,
+                    "status": campaign.status,
                     "emails_sent": sent,
                     "emails_opened": opened,
                     "links_clicked": clicked,
                     "credentials_submitted": submitted,
-                    "open_rate": round((opened / sent) * 100, 1),
-                    "click_rate": round((clicked / sent) * 100, 1),
-                    "submission_rate": round((submitted / sent) * 100, 1),
-                    "start_date": datetime.now() - timedelta(days=random.randint(5, 90)),
-                    "template_name": random.choice(
-                        [
-                            "CEO Email Compromise",
-                            "Invoice Request",
-                            "Password Reset",
-                            "Urgent Meeting",
-                        ]
-                    ),
-                    "target_group": random.choice(
-                        [
-                            "Engineering Team",
-                            "Finance Department",
-                            "Executive Team",
-                            "Sales Team",
-                        ]
-                    ),
-                }
-            )
+                    "open_rate": round((opened / sent) * 100, 1) if sent > 0 else 0.0,
+                    "click_rate": round((clicked / sent) * 100, 1) if sent > 0 else 0.0,
+                    "submission_rate": round((submitted / sent) * 100, 1) if sent > 0 else 0.0,
+                    "start_date": campaign.start_date or campaign.created_at,
+                    "template_name": template_name,
+                    "target_group": target_group,
+                })
 
-        return campaigns
+            return result
+
+        except Exception as e:
+            logger.error(f"Error getting campaign performance: {e}")
+            return []
 
     @staticmethod
     def get_time_series_data(days=30):
         """Return time series data for charts (last N days)"""
-        data = []
-        base_date = datetime.now() - timedelta(days=days)
+        try:
+            event_sent_id = get_event_type_id('email_sent')
+            event_opened_id = get_event_type_id('email_opened')
+            event_clicked_id = get_event_type_id('link_clicked')
+            event_submitted_id = get_event_type_id('form_submitted')
 
-        for i in range(days):
-            date = base_date + timedelta(days=i)
-            # Simulate varying activity levels
-            day_of_week = date.weekday()
-            is_weekend = day_of_week >= 5
+            # Calculate date range
+            end_date = datetime.utcnow().date()
+            start_date = end_date - timedelta(days=days-1)
 
-            emails_sent = 0 if is_weekend else random.randint(40, 150)
-            opened = int(emails_sent * random.uniform(0.35, 0.50)) if emails_sent > 0 else 0
-            clicked = int(opened * random.uniform(0.30, 0.55)) if opened > 0 else 0
-            submitted = int(clicked * random.uniform(0.40, 0.70)) if clicked > 0 else 0
+            # Query events grouped by date
+            result = []
+            current_date = start_date
 
-            data.append(
-                {
-                    "date": date.strftime("%Y-%m-%d"),
-                    "emails_sent": emails_sent,
+            while current_date <= end_date:
+                date_start = datetime.combine(current_date, datetime.min.time())
+                date_end = datetime.combine(current_date, datetime.max.time())
+
+                sent = db.session.query(func.count(Event.id))\
+                    .filter(Event.event_type_id == event_sent_id,
+                            Event.created_at >= date_start,
+                            Event.created_at <= date_end).scalar() if event_sent_id else 0
+
+                opened = db.session.query(func.count(distinct(Event.campaign_target_id)))\
+                    .filter(Event.event_type_id == event_opened_id,
+                            Event.created_at >= date_start,
+                            Event.created_at <= date_end).scalar() if event_opened_id else 0
+
+                clicked = db.session.query(func.count(distinct(Event.campaign_target_id)))\
+                    .filter(Event.event_type_id == event_clicked_id,
+                            Event.created_at >= date_start,
+                            Event.created_at <= date_end).scalar() if event_clicked_id else 0
+
+                submitted = db.session.query(func.count(distinct(Event.campaign_target_id)))\
+                    .filter(Event.event_type_id == event_submitted_id,
+                            Event.created_at >= date_start,
+                            Event.created_at <= date_end).scalar() if event_submitted_id else 0
+
+                result.append({
+                    "date": current_date.strftime("%Y-%m-%d"),
+                    "emails_sent": sent,
                     "emails_opened": opened,
                     "links_clicked": clicked,
                     "credentials_submitted": submitted,
-                    "open_rate": round((opened / emails_sent) * 100, 1) if emails_sent > 0 else 0,
-                    "click_rate": round((clicked / emails_sent) * 100, 1) if emails_sent > 0 else 0,
-                    "submission_rate": (
-                        round((submitted / emails_sent) * 100, 1) if emails_sent > 0 else 0
-                    ),
-                }
-            )
+                    "open_rate": round((opened / sent) * 100, 1) if sent > 0 else 0.0,
+                    "click_rate": round((clicked / sent) * 100, 1) if sent > 0 else 0.0,
+                    "submission_rate": round((submitted / sent) * 100, 1) if sent > 0 else 0.0,
+                })
 
-        return data
+                current_date += timedelta(days=1)
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error getting time series data: {e}")
+            return []
 
     @staticmethod
     def get_department_breakdown():
         """Return metrics broken down by department"""
-        departments = [
-            "Engineering",
-            "Finance",
-            "Sales",
-            "Marketing",
-            "HR & Admin",
-            "Executive",
-            "Customer Support",
-            "IT & Security",
-        ]
+        try:
+            event_sent_id = get_event_type_id('email_sent')
+            event_opened_id = get_event_type_id('email_opened')
+            event_clicked_id = get_event_type_id('link_clicked')
+            event_submitted_id = get_event_type_id('form_submitted')
 
-        data = []
-        for dept in departments:
-            total_targets = random.randint(10, 60)
-            sent = total_targets
-            opened = int(sent * random.uniform(0.25, 0.70))
-            clicked = int(opened * random.uniform(0.20, 0.60))
-            submitted = int(clicked * random.uniform(0.30, 0.80))
+            # Get all departments
+            departments = db.session.query(Department).all()
 
-            data.append(
-                {
-                    "department": dept,
+            result = []
+            for dept in departments:
+                # Count targets in this department
+                total_targets = db.session.query(func.count(Target.id))\
+                    .filter(Target.department_id == dept.id).scalar() or 0
+
+                # Get campaign targets for this department
+                dept_campaign_targets = db.session.query(CampaignTarget.id)\
+                    .join(Target, CampaignTarget.target_id == Target.id)\
+                    .filter(Target.department_id == dept.id).subquery()
+
+                # Count events
+                sent = db.session.query(func.count(Event.id))\
+                    .filter(Event.campaign_target_id.in_(dept_campaign_targets),
+                            Event.event_type_id == event_sent_id).scalar() if event_sent_id else 0
+
+                opened = db.session.query(func.count(distinct(Event.campaign_target_id)))\
+                    .filter(Event.campaign_target_id.in_(dept_campaign_targets),
+                            Event.event_type_id == event_opened_id).scalar() if event_opened_id else 0
+
+                clicked = db.session.query(func.count(distinct(Event.campaign_target_id)))\
+                    .filter(Event.campaign_target_id.in_(dept_campaign_targets),
+                            Event.event_type_id == event_clicked_id).scalar() if event_clicked_id else 0
+
+                submitted = db.session.query(func.count(distinct(Event.campaign_target_id)))\
+                    .filter(Event.campaign_target_id.in_(dept_campaign_targets),
+                            Event.event_type_id == event_submitted_id).scalar() if event_submitted_id else 0
+
+                open_rate = round((opened / sent) * 100, 1) if sent > 0 else 0.0
+                click_rate = round((clicked / sent) * 100, 1) if sent > 0 else 0.0
+                submission_rate = round((submitted / sent) * 100, 1) if sent > 0 else 0.0
+
+                result.append({
+                    "department": dept.name,
                     "total_targets": total_targets,
                     "emails_sent": sent,
                     "emails_opened": opened,
                     "links_clicked": clicked,
                     "credentials_submitted": submitted,
-                    "open_rate": round((opened / sent) * 100, 1),
-                    "click_rate": round((clicked / sent) * 100, 1),
-                    "submission_rate": round((submitted / sent) * 100, 1),
-                    "risk_score": round((submitted / sent) * 100, 1),  # Higher = more risky
-                }
-            )
+                    "open_rate": open_rate,
+                    "click_rate": click_rate,
+                    "submission_rate": submission_rate,
+                    "risk_score": submission_rate,  # Higher = more risky
+                })
 
-        # Sort by risk score descending
-        data.sort(key=lambda x: x["risk_score"], reverse=True)
+            # Sort by risk score descending
+            result.sort(key=lambda x: x["risk_score"], reverse=True)
 
-        return data
+            return result
+
+        except Exception as e:
+            logger.error(f"Error getting department breakdown: {e}")
+            return []
 
     @staticmethod
     def get_template_effectiveness():
         """Return effectiveness metrics for each email template"""
-        templates = [
-            "CEO Email Compromise",
-            "Invoice Request",
-            "Password Reset Request",
-            "Urgent Meeting Request",
-            "Survey Invitation",
-            "IT Support Alert",
-            "Client Complaint",
-            "HR Policy Update",
-        ]
+        try:
+            event_sent_id = get_event_type_id('email_sent')
+            event_opened_id = get_event_type_id('email_opened')
+            event_clicked_id = get_event_type_id('link_clicked')
+            event_submitted_id = get_event_type_id('form_submitted')
 
-        data = []
-        for template in templates:
-            sent = random.randint(150, 600)
-            opened = int(sent * random.uniform(0.30, 0.70))
-            clicked = int(opened * random.uniform(0.25, 0.65))
-            submitted = int(clicked * random.uniform(0.30, 0.75))
+            # Get all templates
+            templates = db.session.query(EmailTemplate).all()
 
-            data.append(
-                {
-                    "template_name": template,
-                    "times_used": random.randint(3, 15),
+            result = []
+            for template in templates:
+                # Count campaigns using this template
+                times_used = db.session.query(func.count(Campaign.id))\
+                    .filter(Campaign.email_template_id == template.id).scalar() or 0
+
+                # Get campaign IDs for this template
+                campaign_ids = db.session.query(Campaign.id)\
+                    .filter(Campaign.email_template_id == template.id).subquery()
+
+                # Get campaign targets for these campaigns
+                template_campaign_targets = db.session.query(CampaignTarget.id)\
+                    .filter(CampaignTarget.campaign_id.in_(campaign_ids)).subquery()
+
+                # Count events
+                sent = db.session.query(func.count(Event.id))\
+                    .filter(Event.campaign_target_id.in_(template_campaign_targets),
+                            Event.event_type_id == event_sent_id).scalar() if event_sent_id else 0
+
+                opened = db.session.query(func.count(distinct(Event.campaign_target_id)))\
+                    .filter(Event.campaign_target_id.in_(template_campaign_targets),
+                            Event.event_type_id == event_opened_id).scalar() if event_opened_id else 0
+
+                clicked = db.session.query(func.count(distinct(Event.campaign_target_id)))\
+                    .filter(Event.campaign_target_id.in_(template_campaign_targets),
+                            Event.event_type_id == event_clicked_id).scalar() if event_clicked_id else 0
+
+                submitted = db.session.query(func.count(distinct(Event.campaign_target_id)))\
+                    .filter(Event.campaign_target_id.in_(template_campaign_targets),
+                            Event.event_type_id == event_submitted_id).scalar() if event_submitted_id else 0
+
+                open_rate = round((opened / sent) * 100, 1) if sent > 0 else 0.0
+                click_rate = round((clicked / sent) * 100, 1) if sent > 0 else 0.0
+                submission_rate = round((submitted / sent) * 100, 1) if sent > 0 else 0.0
+
+                # Calculate effectiveness score (weighted: open + click*2 + submit*3)
+                effectiveness = round(((opened + clicked * 2 + submitted * 3) / (sent * 6)) * 100, 1) if sent > 0 else 0.0
+
+                result.append({
+                    "template_name": template.name,
+                    "times_used": times_used,
                     "emails_sent": sent,
                     "emails_opened": opened,
                     "links_clicked": clicked,
                     "credentials_submitted": submitted,
-                    "open_rate": round((opened / sent) * 100, 1),
-                    "click_rate": round((clicked / sent) * 100, 1),
-                    "submission_rate": round((submitted / sent) * 100, 1),
-                    "effectiveness_score": round(
-                        ((opened + clicked * 2 + submitted * 3) / (sent * 6)) * 100, 1
-                    ),
-                }
-            )
+                    "open_rate": open_rate,
+                    "click_rate": click_rate,
+                    "submission_rate": submission_rate,
+                    "effectiveness_score": effectiveness,
+                })
 
-        # Sort by effectiveness score descending
-        data.sort(key=lambda x: x["effectiveness_score"], reverse=True)
+            # Sort by effectiveness score descending
+            result.sort(key=lambda x: x["effectiveness_score"], reverse=True)
 
-        return data
+            return result
+
+        except Exception as e:
+            logger.error(f"Error getting template effectiveness: {e}")
+            return []
 
     @staticmethod
     def get_device_breakdown():
         """Return metrics by device type"""
+        # TODO: Implement device tracking in events
         return [
-            {
-                "device_type": "Desktop",
-                "count": 245,
-                "percentage": 58.4,
-                "open_rate": 45.2,
-                "click_rate": 22.1,
-                "submission_rate": 10.3,
-            },
-            {
-                "device_type": "Mobile",
-                "count": 142,
-                "percentage": 33.8,
-                "open_rate": 38.7,
-                "click_rate": 15.4,
-                "submission_rate": 5.8,
-            },
-            {
-                "device_type": "Tablet",
-                "count": 33,
-                "percentage": 7.8,
-                "open_rate": 41.3,
-                "click_rate": 18.9,
-                "submission_rate": 7.2,
-            },
+            {"device_type": "N/A", "count": 0, "percentage": 0.0,
+             "open_rate": 0.0, "click_rate": 0.0, "submission_rate": 0.0}
         ]
 
     @staticmethod
     def get_browser_breakdown():
         """Return metrics by browser"""
-        return [
-            {"browser": "Chrome", "count": 198, "percentage": 47.1},
-            {"browser": "Firefox", "count": 87, "percentage": 20.7},
-            {"browser": "Safari", "count": 65, "percentage": 15.5},
-            {"browser": "Edge", "count": 45, "percentage": 10.7},
-            {"browser": "Other", "count": 25, "percentage": 6.0},
-        ]
+        # TODO: Implement browser tracking in events
+        return [{"browser": "N/A", "count": 0, "percentage": 0.0}]
 
     @staticmethod
     def get_os_breakdown():
         """Return metrics by operating system"""
-        return [
-            {"os": "Windows", "count": 215, "percentage": 51.2},
-            {"os": "macOS", "count": 95, "percentage": 22.6},
-            {"os": "iOS", "count": 58, "percentage": 13.8},
-            {"os": "Android", "count": 42, "percentage": 10.0},
-            {"os": "Linux", "count": 10, "percentage": 2.4},
-        ]
+        # TODO: Implement OS tracking in events
+        return [{"os": "N/A", "count": 0, "percentage": 0.0}]
 
     @staticmethod
     def get_event_timeline(limit=50):
         """Return recent events for timeline view"""
-        event_types = [
-            "email_sent",
-            "email_opened",
-            "link_clicked",
-            "form_submitted",
-            "credentials_captured",
-        ]
+        try:
+            # Query recent events with related data
+            events = db.session.query(
+                Event.id,
+                Event.created_at,
+                Event.ip_address,
+                Event.user_agent,
+                EventType.name.label('event_type'),
+                Campaign.name.label('campaign_name'),
+                Target.email.label('target_email')
+            ).join(
+                EventType, Event.event_type_id == EventType.id
+            ).join(
+                CampaignTarget, Event.campaign_target_id == CampaignTarget.id
+            ).join(
+                Campaign, CampaignTarget.campaign_id == Campaign.id
+            ).join(
+                Target, CampaignTarget.target_id == Target.id
+            ).order_by(
+                Event.created_at.desc()
+            ).limit(limit).all()
 
-        events = []
-        base_time = datetime.now()
+            result = []
+            for event in events:
+                result.append({
+                    "id": event.id,
+                    "event_type": event.event_type,
+                    "campaign_name": event.campaign_name,
+                    "target_email": event.target_email,
+                    "timestamp": event.created_at,
+                    "ip_address": event.ip_address or "N/A",
+                    "device": "N/A",  # TODO: Parse from user_agent
+                    "browser": "N/A",  # TODO: Parse from user_agent
+                })
 
-        for i in range(limit):
-            event_type = random.choice(event_types)
-            time_ago = timedelta(minutes=random.randint(1, 1440))  # Last 24 hours
+            return result
 
-            events.append(
-                {
-                    "id": i + 1,
-                    "event_type": event_type,
-                    "campaign_name": random.choice(
-                        [
-                            "Q4 Security Training",
-                            "Executive Phishing Test",
-                            "Finance Department Assessment",
-                        ]
-                    ),
-                    "target_email": f"user{random.randint(1, 300)}@company.com",
-                    "timestamp": base_time - time_ago,
-                    "ip_address": f"{random.randint(1, 255)}.{random.randint(1, 255)}.{random.randint(1, 255)}.{random.randint(1, 255)}",
-                    "device": random.choice(["Desktop", "Mobile", "Tablet"]),
-                    "browser": random.choice(["Chrome", "Firefox", "Safari", "Edge"]),
-                }
-            )
-
-        # Sort by timestamp descending (most recent first)
-        events.sort(key=lambda x: x["timestamp"], reverse=True)
-
-        return events
+        except Exception as e:
+            logger.error(f"Error getting event timeline: {e}")
+            return []
 
     @staticmethod
     def get_top_vulnerable_users(limit=10):
         """Return users who are most vulnerable (clicked/submitted most)"""
-        users = []
+        try:
+            event_opened_id = get_event_type_id('email_opened')
+            event_clicked_id = get_event_type_id('link_clicked')
+            event_submitted_id = get_event_type_id('form_submitted')
 
-        for i in range(limit):
-            submitted = random.randint(2, 8)
-            clicked = submitted + random.randint(1, 5)
-            opened = clicked + random.randint(2, 8)
-            received = opened + random.randint(1, 5)
+            # Get all targets with their event counts
+            targets = db.session.query(Target).all()
 
-            users.append(
-                {
-                    "email": f"user{i+1}@company.com",
-                    "name": f"Employee #{i+1}",
-                    "department": random.choice(
-                        [
-                            "Sales",
-                            "Marketing",
-                            "Finance",
-                            "Engineering",
-                            "Customer Support",
-                        ]
-                    ),
+            result = []
+            for target in targets:
+                # Get campaign targets for this target
+                target_campaign_targets = db.session.query(CampaignTarget.id)\
+                    .filter(CampaignTarget.target_id == target.id).subquery()
+
+                # Count events
+                received = db.session.query(func.count(Event.id))\
+                    .filter(Event.campaign_target_id.in_(target_campaign_targets)).scalar() or 0
+
+                opened = db.session.query(func.count(Event.id))\
+                    .filter(Event.campaign_target_id.in_(target_campaign_targets),
+                            Event.event_type_id == event_opened_id).scalar() if event_opened_id else 0
+
+                clicked = db.session.query(func.count(Event.id))\
+                    .filter(Event.campaign_target_id.in_(target_campaign_targets),
+                            Event.event_type_id == event_clicked_id).scalar() if event_clicked_id else 0
+
+                submitted = db.session.query(func.count(Event.id))\
+                    .filter(Event.campaign_target_id.in_(target_campaign_targets),
+                            Event.event_type_id == event_submitted_id).scalar() if event_submitted_id else 0
+
+                # Skip if no events
+                if received == 0:
+                    continue
+
+                # Get department name
+                dept_name = "Unknown"
+                if target.department_id:
+                    dept = db.session.query(Department)\
+                        .filter(Department.id == target.department_id).first()
+                    if dept:
+                        dept_name = dept.name
+
+                # Calculate vulnerability score
+                vulnerability = round((clicked * 2 + submitted * 5) / (received * 7) * 100, 1) if received > 0 else 0.0
+
+                result.append({
+                    "email": target.email,
+                    "name": f"{target.first_name} {target.last_name}" if target.first_name else target.email,
+                    "department": dept_name,
                     "emails_received": received,
                     "emails_opened": opened,
                     "links_clicked": clicked,
                     "credentials_submitted": submitted,
-                    "vulnerability_score": round(
-                        (clicked * 2 + submitted * 5) / (received * 7) * 100, 1
-                    ),
-                }
-            )
+                    "vulnerability_score": vulnerability,
+                })
 
-        # Sort by vulnerability score descending
-        users.sort(key=lambda x: x["vulnerability_score"], reverse=True)
+            # Sort by vulnerability score descending
+            result.sort(key=lambda x: x["vulnerability_score"], reverse=True)
 
-        return users
+            return result[:limit]
+
+        except Exception as e:
+            logger.error(f"Error getting top vulnerable users: {e}")
+            return []
 
     @staticmethod
     def get_filtered_data(filters):
@@ -351,19 +542,47 @@ class MockAnalyticsRepository:
         Returns:
             dict: Filtered analytics data
         """
-        # In production, this would query database with WHERE clauses
-        # For now, return slightly modified overall stats
+        try:
+            event_sent_id = get_event_type_id('email_sent')
+            event_opened_id = get_event_type_id('email_opened')
+            event_clicked_id = get_event_type_id('link_clicked')
+            event_submitted_id = get_event_type_id('form_submitted')
 
-        base_stats = MockAnalyticsRepository.get_overall_stats()
+            # Build query with filters
+            query = db.session.query(Event)
 
-        # Simulate filtering reducing the numbers
-        filter_count = len([v for v in filters.values() if v])
-        reduction_factor = 1 - (filter_count * 0.2)  # Each filter reduces data by ~20%
+            # Filter by campaign
+            if filters.get('campaign_id'):
+                query = query.join(CampaignTarget)\
+                    .filter(CampaignTarget.campaign_id == filters['campaign_id'])
 
-        return {
-            "emails_sent": int(base_stats["total_emails_sent"] * reduction_factor),
-            "emails_opened": int(base_stats["total_emails_sent"] * reduction_factor * 0.42),
-            "links_clicked": int(base_stats["total_emails_sent"] * reduction_factor * 0.18),
-            "credentials_submitted": int(base_stats["total_emails_sent"] * reduction_factor * 0.08),
-            "filters_applied": filters,
-        }
+            # Filter by date range
+            if filters.get('date_from'):
+                query = query.filter(Event.created_at >= filters['date_from'])
+            if filters.get('date_to'):
+                query = query.filter(Event.created_at <= filters['date_to'])
+
+            # Count by event type
+            sent = query.filter(Event.event_type_id == event_sent_id).count() if event_sent_id else 0
+            opened = query.filter(Event.event_type_id == event_opened_id).count() if event_opened_id else 0
+            clicked = query.filter(Event.event_type_id == event_clicked_id).count() if event_clicked_id else 0
+            submitted = query.filter(Event.event_type_id == event_submitted_id).count() if event_submitted_id else 0
+
+            return {
+                "emails_sent": sent,
+                "emails_opened": opened,
+                "links_clicked": clicked,
+                "credentials_submitted": submitted,
+                "filters_applied": filters,
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting filtered data: {e}")
+            return {
+                "emails_sent": 0,
+                "emails_opened": 0,
+                "links_clicked": 0,
+                "credentials_submitted": 0,
+                "filters_applied": filters,
+            }
+

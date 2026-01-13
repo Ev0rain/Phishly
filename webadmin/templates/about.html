@@ -4,14 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>About - Phishly Admin Portal</title>
+    <script src="{{ url_for('static', filename='js/theme-loader.js') }}"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 </head>
 <body>
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
         <div class="sidebar-header">
-            <h1>Phishly</h1>
-            <p class="version">Admin Portal</p>
+            <div class="header-top">
+                <div class="header-branding">
+                    <h1>Phishly</h1>
+                    <p class="version">Admin Portal</p>
+                </div>
+                <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                    <span class="theme-icon">◐</span>
+                </button>
+            </div>
         </div>
         
         <nav class="sidebar-nav">
@@ -48,8 +56,12 @@
         <div class="sidebar-footer">
             <div class="user-info">
                 <span class="icon">●</span>
-                <span>Admin User</span>
+                <span>{{ current_user.username if current_user.is_authenticated else 'Admin User' }}</span>
             </div>
+            <a href="/logout" class="logout-btn">
+                <span class="icon">⎋</span>
+                <span>Logout</span>
+            </a>
         </div>
     </aside>
 

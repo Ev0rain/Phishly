@@ -4,19 +4,21 @@ Handles analytics dashboard, metrics, and data visualization
 """
 
 from flask import Blueprint, render_template, request, jsonify
-from repositories.analytics_repository import MockAnalyticsRepository
-from repositories.campaign_repository import MockCampaignRepository
-from repositories.templates_repository import MockTemplatesRepository
-from repositories.targets_repository import MockTargetsRepository
+from flask_login import login_required
+from repositories.analytics_repository import AnalyticsRepository
+from repositories.campaign_repository import CampaignRepository
+from repositories.templates_repository import TemplatesRepository
+from repositories.targets_repository import TargetsRepository
 
 analytics_bp = Blueprint("analytics", __name__)
-analytics_repo = MockAnalyticsRepository()
-campaign_repo = MockCampaignRepository()
-templates_repo = MockTemplatesRepository()
-targets_repo = MockTargetsRepository()
+analytics_repo = AnalyticsRepository()
+campaign_repo = CampaignRepository()
+templates_repo = TemplatesRepository()
+targets_repo = TargetsRepository()
 
 
 @analytics_bp.route("/analytics")
+@login_required
 def index():
     """Display analytics dashboard with comprehensive metrics"""
 
@@ -66,6 +68,7 @@ def index():
 
 
 @analytics_bp.route("/api/analytics/time-series")
+@login_required
 def get_time_series():
     """API endpoint for time series chart data"""
     days = request.args.get("days", default=30, type=int)
@@ -88,6 +91,7 @@ def get_time_series():
 
 
 @analytics_bp.route("/api/analytics/filter", methods=["POST"])
+@login_required
 def apply_filters():
     """API endpoint to get filtered analytics data"""
     filters = {
@@ -113,6 +117,7 @@ def apply_filters():
 
 
 @analytics_bp.route("/api/analytics/export")
+@login_required
 def export_data():
     """Export analytics data as CSV"""
     # In production, this would generate a CSV file
@@ -127,6 +132,7 @@ def export_data():
 
 
 @analytics_bp.route("/analytics/campaign/<int:campaign_id>")
+@login_required
 def campaign_detail(campaign_id):
     """Detailed analytics for a specific campaign"""
     campaign = campaign_repo.get_campaign_by_id(campaign_id)

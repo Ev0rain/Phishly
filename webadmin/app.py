@@ -63,38 +63,69 @@ def create_app(config=None):
     # Redis Configuration (for Flask-Session)
     redis_url = os.environ.get("REDIS_URL")
     if redis_url:
-        # Flask-Session configuration
+        # Flask-Session configuration for Redis
         app.config["SESSION_TYPE"] = "redis"
         app.config["SESSION_PERMANENT"] = True
         app.config["PERMANENT_SESSION_LIFETIME"] = 7200  # 2 hours
-        app.config["SESSION_USE_SIGNER"] = True  # Sign session cookies
+        app.config["SESSION_USE_SIGNER"] = True  # Sign session cookies for security
         app.config["SESSION_KEY_PREFIX"] = "phishly:session:"
 
-        # Redis connection will be initialized when Flask-Session is set up
-        app.config["SESSION_REDIS_URL"] = redis_url
+        # CRITICAL: Use JSON serialization instead of msgpack/pickle
+        # This prevents UnicodeDecodeError from incompatible formats
+        app.config["SESSION_SERIALIZATION_FORMAT"] = "json"
 
-        # Cookie security settings
-        app.config["SESSION_COOKIE_HTTPONLY"] = True  # Prevent JavaScript access
-        app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # CSRF protection
+        # Redis connection - must use decode_responses=True for proper string handling
+        import redis
 
-        # Only use Secure flag in production (HTTPS)
-        if not is_debug:
-            app.config["SESSION_COOKIE_SECURE"] = True
+        # CRITICAL FIX: Clear ALL session data on startup to prevent corruption issues
+        # This is safe because users just need to log in again
+        try:
+            r = redis.from_url(redis_url, decode_responses=False)
+            session_keys = r.keys("phishly:session:*")
+            if session_keys:
+                deleted = r.delete(*session_keys)
+                print(f"🧹 Cleared {deleted} session keys to prevent format corruption")
+        except Exception as e:
+            print(f"⚠️  Could not clear sessions: {e}")
+
+        # Now create the proper Redis connection for Flask-Session
+        app.config["SESSION_REDIS"] = redis.from_url(redis_url, decode_responses=True)
 
         print(f"✅ Redis configured: {redis_url}")
+        print("✅ Redis sessions enabled with JSON serialization")
     else:
-        print(
-            "⚠️  WARNING: REDIS_URL not set. Using filesystem sessions (not recommended for production)."
-        )
+        print("⚠️  WARNING: REDIS_URL not set. Using filesystem sessions (not recommended for production).")
         app.config["SESSION_TYPE"] = "filesystem"
+        app.config["SESSION_PERMANENT"] = True
+        app.config["PERMANENT_SESSION_LIFETIME"] = 7200
+
+    # Cookie security settings
+    app.config["SESSION_COOKIE_HTTPONLY"] = True  # Prevent JavaScript access
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # CSRF protection
+
+    # Only use Secure flag in production (HTTPS)
+    if not is_debug:
+            app.config["SESSION_COOKIE_SECURE"] = True
+
 
     # Custom configuration override
     if config:
         app.config.update(config)
 
-    # Initialize extensions (when database/redis are available)
-    # Note: SQLAlchemy and Flask-Session will be initialized when implemented
-    # For now, these are just configuration placeholders
+    # Initialize database
+    from database import db
+    db.init_app(app)
+
+    # Initialize Flask-Login (authentication)
+    from auth_utils import login_manager
+    login_manager.init_app(app)
+    print("✅ Flask-Login initialized")
+
+    # Initialize Flask-Session (Redis or filesystem backed)
+    from flask_session import Session
+    Session(app)
+    session_type = app.config.get("SESSION_TYPE", "unknown")
+    print(f"✅ Flask-Session initialized with {session_type} backend")
 
     # Register blueprints
     from routes.dashboard import dashboard_bp
@@ -115,23 +146,73 @@ def create_app(config=None):
     app.register_blueprint(analytics_bp)
     app.register_blueprint(settings_bp)
 
+    # Session corruption error handler
+    # Catches UnicodeDecodeError from corrupted Redis sessions
+    @app.before_request
+    def handle_corrupted_session():
+        """Clear corrupted session data before processing request"""
+        from flask import session as flask_session, request, redirect, url_for
+
+        try:
+            # Try to access session to trigger any decoding errors
+            _ = dict(flask_session)
+        except (UnicodeDecodeError, ValueError, TypeError) as e:
+            # Session is corrupted, clear it
+            print(f"⚠️  Corrupted session detected: {e}")
+            print(f"   Clearing session for: {request.remote_addr}")
+
+            # Clear the session
+            flask_session.clear()
+
+            # If Redis is configured, try to delete the session key directly
+            if app.config.get("SESSION_TYPE") == "redis":
+                try:
+                    from flask import request as req
+                    session_cookie = req.cookies.get(app.config.get("SESSION_COOKIE_NAME", "session"))
+                    if session_cookie:
+                        redis_conn = app.config.get("SESSION_REDIS")
+                        if redis_conn:
+                            key = f"{app.config.get('SESSION_KEY_PREFIX', 'session:')}{session_cookie}"
+                            redis_conn.delete(key)
+                            print(f"   Deleted corrupted Redis key: {key}")
+                except Exception as redis_err:
+                    print(f"   Could not delete Redis key: {redis_err}")
+
+            # Redirect to login page if not already there
+            if not request.path.startswith('/login') and not request.path.startswith('/static'):
+                return redirect(url_for('auth.login_page'))
+
+    # Register CLI commands
+    from cli_commands import register_commands
+    register_commands(app)
+
     # Health check endpoint for Docker
     @app.route("/health")
     def health():
         """Docker health check endpoint"""
+        from database import test_connection
+
         status = {
             "status": "healthy",
             "service": "webadmin",
             "debug_mode": app.config.get("DEBUG", False),
         }
 
-        # Optional: Add database connectivity check
+        # Test database connectivity
         if app.config.get("SQLALCHEMY_DATABASE_URI"):
-            status["database"] = "configured"
+            db_connected = test_connection()
+            status["database"] = "connected" if db_connected else "disconnected"
+            if not db_connected:
+                status["status"] = "degraded"
 
-        # Optional: Add Redis connectivity check
-        if app.config.get("SESSION_REDIS_URL"):
-            status["redis"] = "configured"
+        # Check Redis configuration
+        session_type = app.config.get("SESSION_TYPE", "unknown")
+        if os.environ.get("REDIS_URL") and session_type == "redis":
+            status["redis"] = "connected (redis sessions active)"
+        elif os.environ.get("REDIS_URL"):
+            status["redis"] = "configured (filesystem fallback)"
+        else:
+            status["redis"] = "not configured"
 
         return status, 200
 

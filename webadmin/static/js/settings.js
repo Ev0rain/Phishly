@@ -1,58 +1,33 @@
 /**
  * Settings Page JavaScript
- * Handles theme switching and preference persistence
+ * Handles theme toggle and preference management
  */
 
 document.addEventListener('DOMContentLoaded', function () {
-    // Theme Management
-    initTheme();
+    // Theme toggle functionality
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+        themeToggle.addEventListener('click', function () {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('phishly-theme', newTheme);
+        });
+    }
+
+    // Logout confirmation
+    const logoutBtn = document.querySelector('.logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', function (e) {
+            if (!confirm('Are you sure you want to log out?')) {
+                e.preventDefault();
+            }
+        });
+    }
 
     // Toggle switches
     initToggleSwitches();
 });
-
-/**
- * Initialize theme based on saved preference or system default
- */
-function initTheme() {
-    // Get saved theme or default to light
-    const savedTheme = localStorage.getItem('phishly-theme') || 'light';
-
-    // Apply theme
-    applyTheme(savedTheme);
-
-    // Set up theme toggle buttons
-    const themeButtons = document.querySelectorAll('.theme-option');
-    themeButtons.forEach(button => {
-        button.addEventListener('click', function () {
-            const theme = this.dataset.theme;
-            applyTheme(theme);
-            localStorage.setItem('phishly-theme', theme);
-        });
-    });
-}
-
-/**
- * Apply theme to the document
- * @param {string} theme - 'light' or 'dark'
- */
-function applyTheme(theme) {
-    // Set theme attribute on document
-    document.documentElement.setAttribute('data-theme', theme);
-
-    // Update active button
-    const themeButtons = document.querySelectorAll('.theme-option');
-    themeButtons.forEach(button => {
-        if (button.dataset.theme === theme) {
-            button.classList.add('active');
-        } else {
-            button.classList.remove('active');
-        }
-    });
-
-    // Store preference
-    localStorage.setItem('phishly-theme', theme);
-}
 
 /**
  * Initialize toggle switches with saved preferences

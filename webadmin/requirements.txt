@@ -10,21 +10,27 @@ Jinja2==3.1.2
 # ============================================
 # Authentication & Sessions
 # ============================================
-Flask-Session==0.5.0      # Redis-backed sessions
+Flask-Session==0.8.0      # Redis-backed sessions (updated for Werkzeug 3.x compatibility)
 Flask-WTF==1.2.1          # CSRF protection and forms
-# Flask-Login==0.6.3      # User authentication (future)
+Flask-Login==0.6.3        # User authentication
 
 # ============================================
-# Database (Future Integration)
+# Database
 # ============================================
-# SQLAlchemy==2.0.23
-# psycopg2-binary==2.9.9
-# alembic==1.13.1         # Database migrations
+Flask-SQLAlchemy==3.1.1   # Flask integration for SQLAlchemy
+SQLAlchemy==2.0.23        # ORM
+psycopg2-binary==2.9.9    # PostgreSQL adapter
+alembic==1.13.1           # Database migrations
 
 # ============================================
 # Redis Client
 # ============================================
 redis==5.0.1              # Session storage
+
+# ============================================
+# Task Queue (for triggering Celery tasks)
+# ============================================
+celery==5.3.4             # Celery client for triggering email tasks
 
 # ============================================
 # Utilities

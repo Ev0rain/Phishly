@@ -28,6 +28,27 @@ function getChartColors() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+    // Theme toggle functionality
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+        themeToggle.addEventListener('click', function () {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('phishly-theme', newTheme);
+        });
+    }
+
+    // Logout confirmation
+    const logoutBtn = document.querySelector('.logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', function (e) {
+            if (!confirm('Are you sure you want to log out?')) {
+                e.preventDefault();
+            }
+        });
+    }
+
     // Initialize charts
     initializeTimeSeriesChart(30); // Default 30 days
     initializeDeviceChart();

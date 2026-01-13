@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings - Phishly Admin</title>
+    <script src="{{ url_for('static', filename='js/theme-loader.js') }}"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
 </head>
@@ -11,8 +12,15 @@
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
         <div class="sidebar-header">
-            <h1>Phishly</h1>
-            <p class="version">Admin Portal</p>
+            <div class="header-top">
+                <div class="header-branding">
+                    <h1>Phishly</h1>
+                    <p class="version">Admin Portal</p>
+                </div>
+                <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                    <span class="theme-icon">◐</span>
+                </button>
+            </div>
         </div>
         
         <nav class="sidebar-nav">
@@ -49,8 +57,12 @@
         <div class="sidebar-footer">
             <div class="user-info">
                 <span class="icon">●</span>
-                <span>Admin User</span>
+                <span>{{ current_user.username if current_user.is_authenticated else 'Admin User' }}</span>
             </div>
+            <a href="/logout" class="logout-btn">
+                <span class="icon">⎋</span>
+                <span>Logout</span>
+            </a>
         </div>
     </aside>
 
@@ -65,31 +77,51 @@
 
         <!-- Settings Sections -->
         <div class="settings-container">
-            <!-- Appearance Section -->
+            <!-- Account Security Section -->
             <section class="settings-section">
                 <div class="section-header">
-                    <h3>Appearance</h3>
-                    <p class="section-description">Customize how Phishly looks on your device</p>
+                    <h3>Account Security</h3>
+                    <p class="section-description">Manage your password and security settings</p>
                 </div>
-                
+
                 <div class="settings-group">
                     <div class="setting-item">
                         <div class="setting-info">
-                            <label class="setting-label">Theme</label>
-                            <p class="setting-description">Choose your preferred color scheme. The theme will be applied across all pages.</p>
+                            <label class="setting-label">Change Password</label>
+                            <p class="setting-description">Update your password to keep your account secure</p>
                         </div>
-                        <div class="theme-toggle">
-                            <button class="theme-option" data-theme="light">
-                                <span class="theme-icon">☀️</span>
-                                <span class="theme-name">Light</span>
-                                <span class="check-icon">✓</span>
-                            </button>
-                            <button class="theme-option" data-theme="dark">
-                                <span class="theme-icon">🌙</span>
-                                <span class="theme-name">Dark</span>
-                                <span class="check-icon">✓</span>
-                            </button>
-                        </div>
+
+                        <!-- Flash Messages -->
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{{ category }}">
+                                        {{ message }}
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
+
+                        <!-- Password Change Form -->
+                        <form method="POST" action="{{ url_for('settings.change_password') }}" class="password-form">
+                            <div class="form-group">
+                                <label for="current_password">Current Password</label>
+                                <input type="password" id="current_password" name="current_password" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="new_password">New Password</label>
+                                <input type="password" id="new_password" name="new_password" required minlength="8">
+                                <small class="form-text">Minimum 8 characters</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="confirm_password">Confirm New Password</label>
+                                <input type="password" id="confirm_password" name="confirm_password" required minlength="8">
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Change Password</button>
+                        </form>
                     </div>
                 </div>
             </section>

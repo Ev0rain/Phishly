@@ -4,13 +4,15 @@ Handles target group management, creation, and CSV import
 """
 
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
-from repositories.targets_repository import MockTargetsRepository
+from flask_login import login_required
+from repositories.targets_repository import TargetsRepository
 
 targets_bp = Blueprint("targets", __name__)
-targets_repo = MockTargetsRepository()
+targets_repo = TargetsRepository()
 
 
 @targets_bp.route("/targets")
+@login_required
 def index():
     """Display all target groups"""
     groups = targets_repo.get_all_groups()
@@ -24,6 +26,7 @@ def index():
 
 
 @targets_bp.route("/targets/create", methods=["GET", "POST"])
+@login_required
 def create():
     """Create a new target group manually"""
     if request.method == "POST":
@@ -57,6 +60,7 @@ def create():
 
 
 @targets_bp.route("/targets/import", methods=["GET", "POST"])
+@login_required
 def import_csv():
     """Import target group from CSV file"""
     if request.method == "POST":
@@ -98,7 +102,12 @@ def import_csv():
                 return redirect(url_for("targets.index") + "#import")
 
             # Create the group with parsed targets
-            new_group = targets_repo.create_group(group_name, group_description, result["targets"])
+            new_group = targets_repo.create_group(
+                group_name,
+                group_description,
+                result["targets"],
+                created_by_id=current_user.id if hasattr(current_user, 'id') else None
+            )
 
             flash(
                 f"Successfully imported {result['count']} targets into group '{group_name}'",
@@ -115,6 +124,7 @@ def import_csv():
 
 
 @targets_bp.route("/targets/<int:group_id>")
+@login_required
 def view_group(group_id):
     """View details of a specific target group"""
     group = targets_repo.get_group_by_id(group_id)
@@ -130,6 +140,7 @@ def view_group(group_id):
 
 
 @targets_bp.route("/api/targets/<int:group_id>/members")
+@login_required
 def get_group_members(group_id):
     """API endpoint to get members of a target group (for AJAX requests)"""
     members = targets_repo.get_group_members(group_id)
@@ -145,6 +156,7 @@ def get_group_members(group_id):
 
 
 @targets_bp.route("/targets/<int:group_id>/delete", methods=["POST"])
+@login_required
 def delete_group(group_id):
     """Delete a target group"""
     # In production, this would delete from database
@@ -154,6 +166,7 @@ def delete_group(group_id):
 
 
 @targets_bp.route("/targets/<int:group_id>/edit", methods=["GET", "POST"])
+@login_required
 def edit_group(group_id):
     """Edit a target group"""
     group = targets_repo.get_group_by_id(group_id)

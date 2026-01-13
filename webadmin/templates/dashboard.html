@@ -11,10 +11,17 @@
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
         <div class="sidebar-header">
-            <h1>Phishly</h1>
-            <p class="version">Admin Portal</p>
+            <div class="header-top">
+                <div class="header-branding">
+                    <h1>Phishly</h1>
+                    <p class="version">Admin Portal</p>
+                </div>
+                <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                    <span class="theme-icon">◐</span>
+                </button>
+            </div>
         </div>
-        
+
         <nav class="sidebar-nav">
             <a href="/" class="nav-item active">
                 <span class="icon">▤</span>
@@ -45,12 +52,16 @@
                 <span>About</span>
             </a>
         </nav>
-        
+
         <div class="sidebar-footer">
             <div class="user-info">
                 <span class="icon">●</span>
-                <span>Admin User</span>
+                <span>{{ current_user.username if current_user.is_authenticated else 'Admin User' }}</span>
             </div>
+            <a href="/logout" class="logout-btn">
+                <span class="icon">⎋</span>
+                <span>Logout</span>
+            </a>
         </div>
     </aside>
 
@@ -72,7 +83,11 @@
                 </div>
                 <div class="stat-value">{{ stats.emails_sent }}</div>
                 <div class="stat-footer">
-                    <span class="stat-change positive">+12% this week</span>
+                    {% if stats.emails_sent > 0 %}
+                        <span class="stat-detail">All-time total</span>
+                    {% else %}
+                        <span class="stat-detail">No emails sent yet</span>
+                    {% endif %}
                 </div>
             </div>
 

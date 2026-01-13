@@ -1,150 +1,105 @@
 """
-Mock repository for email template data
-This returns hardcoded data and handles file operations until the database is ready
+Templates Repository - Real database implementation with hybrid storage
+
+Metadata stored in database, HTML files stored on disk
 """
 
-from datetime import datetime, timedelta
+from repositories.base_repository import BaseRepository
+from database import db
+from db.models import EmailTemplate
+from datetime import datetime
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-class MockTemplatesRepository:
-    """Mock data access layer for email templates"""
+class TemplatesRepository(BaseRepository):
+    """Real database repository for email templates with hybrid storage"""
 
     # Directory where template HTML files are stored
-    TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "email_templates")
+    TEMPLATES_DIR = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+        "Templates", "email_templates"
+    )
 
     @staticmethod
     def get_all_templates():
-        """Return all email templates with metadata"""
-        return [
-            {
-                "id": 1,
-                "name": "CEO Email Compromise",
-                "subject": "Urgent: Wire Transfer Required",
-                "tags": ["executive", "urgent", "financial"],
-                "filename": "ceo_compromise.html",
-                "created_at": datetime.now() - timedelta(days=45),
-                "last_used": datetime.now() - timedelta(days=2),
-                "times_used": 12,
-            },
-            {
-                "id": 2,
-                "name": "Invoice Request",
-                "subject": "RE: Invoice #2024-1847",
-                "tags": ["finance", "billing"],
-                "filename": "invoice_request.html",
-                "created_at": datetime.now() - timedelta(days=60),
-                "last_used": datetime.now() - timedelta(days=5),
-                "times_used": 8,
-            },
-            {
-                "id": 3,
-                "name": "Password Reset Request",
-                "subject": "Reset Your Password",
-                "tags": ["it-security", "credentials"],
-                "filename": "password_reset.html",
-                "created_at": datetime.now() - timedelta(days=30),
-                "last_used": datetime.now() - timedelta(days=14),
-                "times_used": 15,
-            },
-            {
-                "id": 4,
-                "name": "Survey Invitation",
-                "subject": "Your Feedback Matters",
-                "tags": ["hr", "survey"],
-                "filename": "survey_invitation.html",
-                "created_at": datetime.now() - timedelta(days=90),
-                "last_used": datetime.now() - timedelta(days=21),
-                "times_used": 6,
-            },
-            {
-                "id": 5,
-                "name": "Urgent Meeting Request",
-                "subject": "URGENT: Board Meeting Today",
-                "tags": ["executive", "urgent", "meeting"],
-                "filename": "urgent_meeting.html",
-                "created_at": datetime.now() - timedelta(days=20),
-                "last_used": datetime.now() - timedelta(days=1),
-                "times_used": 3,
-            },
-            {
-                "id": 6,
-                "name": "Client Complaint",
-                "subject": "Customer Escalation - Action Required",
-                "tags": ["support", "urgent"],
-                "filename": "client_complaint.html",
-                "created_at": datetime.now() - timedelta(days=15),
-                "last_used": datetime.now() - timedelta(days=7),
-                "times_used": 5,
-            },
-            {
-                "id": 7,
-                "name": "IT Support Alert",
-                "subject": "Security Update Required",
-                "tags": ["it-security", "alert"],
-                "filename": "it_support_alert.html",
-                "created_at": datetime.now() - timedelta(days=50),
-                "last_used": datetime.now() - timedelta(days=10),
-                "times_used": 9,
-            },
-            {
-                "id": 8,
-                "name": "HR Policy Update",
-                "subject": "New Company Policy - Review Required",
-                "tags": ["hr", "policy"],
-                "filename": "hr_policy_update.html",
-                "created_at": datetime.now() - timedelta(days=35),
-                "last_used": datetime.now() - timedelta(days=28),
-                "times_used": 4,
-            },
-            {
-                "id": 9,
-                "name": "Shipping Notification",
-                "subject": "Package Delivery Confirmation Required",
-                "tags": ["delivery", "package"],
-                "filename": "shipping_notification.html",
-                "created_at": datetime.now() - timedelta(days=25),
-                "last_used": datetime.now() - timedelta(days=3),
-                "times_used": 7,
-            },
-            {
-                "id": 10,
-                "name": "LinkedIn Connection Request",
-                "subject": "You have a new connection request",
-                "tags": ["social", "linkedin"],
-                "filename": "linkedin_connection.html",
-                "created_at": datetime.now() - timedelta(days=18),
-                "last_used": datetime.now() - timedelta(days=6),
-                "times_used": 11,
-            },
-        ]
+        """Return all email templates with metadata from database"""
+        try:
+            templates = db.session.query(EmailTemplate)\
+                .order_by(EmailTemplate.created_at.desc()).all()
+
+            result = []
+            for template in templates:
+                result.append({
+                    "id": template.id,
+                    "name": template.name,
+                    "subject": template.subject,
+                    "from_email": template.from_email,
+                    "from_name": template.from_name,
+                    "created_at": template.created_at,
+                    # For compatibility with existing UI
+                    "filename": f"{template.id}.html",
+                    "tags": [],  # TODO: Add tags support if needed
+                    "last_used": None,  # TODO: Track usage
+                    "times_used": 0,  # TODO: Track usage
+                })
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error getting all templates: {e}")
+            return []
 
     @staticmethod
     def get_template_by_id(template_id):
         """Return a single template by ID"""
-        templates = MockTemplatesRepository.get_all_templates()
-        for template in templates:
-            if template["id"] == template_id:
-                return template
-        return None
+        try:
+            template = db.session.query(EmailTemplate)\
+                .filter(EmailTemplate.id == template_id).first()
+
+            if not template:
+                return None
+
+            return {
+                "id": template.id,
+                "name": template.name,
+                "subject": template.subject,
+                "from_email": template.from_email,
+                "from_name": template.from_name,
+                "created_at": template.created_at,
+                "filename": f"{template.id}.html",
+                "tags": [],
+                "last_used": None,
+                "times_used": 0,
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting template by id {template_id}: {e}")
+            return None
 
     @staticmethod
-    def get_template_html(filename):
-        """Read the HTML content of a template file"""
-        filepath = os.path.join(MockTemplatesRepository.TEMPLATES_DIR, filename)
+    def get_template_html(template_id):
+        """Read the HTML content of a template file from disk"""
+        # Build file path based on template ID
+        filename = f"{template_id}.html"
+        filepath = os.path.join(TemplatesRepository.TEMPLATES_DIR, filename)
 
         # If file doesn't exist, return a mock HTML template
         if not os.path.exists(filepath):
-            return MockTemplatesRepository._get_mock_html(filename)
+            logger.warning(f"Template file not found: {filepath}")
+            return TemplatesRepository._get_mock_html()
 
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 return f.read()
         except Exception as e:
+            logger.error(f"Error reading template file: {e}")
             return f"<p>Error reading template: {str(e)}</p>"
 
     @staticmethod
-    def _get_mock_html(filename):
+    def _get_mock_html():
         """Return mock HTML content for templates"""
         # Generic phishing email template
         return """
@@ -225,23 +180,54 @@ class MockTemplatesRepository:
 """
 
     @staticmethod
-    def save_template(name, subject, tags, html_content, filename):
+    def save_template(name, subject, from_email, from_name, html_content, created_by_id=None):
         """
-        Save a new template (mock implementation)
-        In production, this would save to the filesystem and database
+        Save a new template (metadata to DB, HTML to disk)
+
+        Args:
+            name: Template name
+            subject: Email subject line
+            from_email: Sender email address
+            from_name: Sender display name
+            html_content: HTML content of email
+            created_by_id: ID of admin user creating the template (optional)
+
+        Returns:
+            tuple: (success: bool, message: str, template_id: int or None)
         """
-        # Ensure email_templates directory exists
-        os.makedirs(MockTemplatesRepository.TEMPLATES_DIR, exist_ok=True)
-
-        # Save HTML file
-        filepath = os.path.join(MockTemplatesRepository.TEMPLATES_DIR, filename)
-
         try:
+            # Create database record
+            new_template = EmailTemplate(
+                name=name,
+                subject=subject,
+                from_email=from_email,
+                from_name=from_name,
+                body_html="",  # Empty placeholder, actual HTML stored in file
+                created_by_id=created_by_id,
+                created_at=datetime.utcnow()
+            )
+            db.session.add(new_template)
+            db.session.flush()  # Get ID without committing
+
+            # Ensure templates directory exists
+            os.makedirs(TemplatesRepository.TEMPLATES_DIR, exist_ok=True)
+
+            # Save HTML file using template ID
+            filename = f"{new_template.id}.html"
+            filepath = os.path.join(TemplatesRepository.TEMPLATES_DIR, filename)
+
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(html_content)
-            return True, "Template saved successfully"
+
+            # Commit database transaction
+            db.session.commit()
+
+            return True, "Template saved successfully", new_template.id
+
         except Exception as e:
-            return False, f"Error saving template: {str(e)}"
+            db.session.rollback()
+            logger.error(f"Error saving template: {e}")
+            return False, f"Error saving template: {str(e)}", None
 
     @staticmethod
     def get_available_tags():

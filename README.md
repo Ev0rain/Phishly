@@ -46,7 +46,38 @@ Before you begin, ensure you have the following installed:
    cd phishly
    ```
 
-2. **Configure environment variables**
+2. **One-Command Deployment** (Recommended)
+   ```bash
+   ./deploy.sh
+   ```
+
+   This will automatically:
+   - Start all Docker services
+   - Create database schema
+   - Create admin user (admin/admin123)
+   - Configure everything (~2 minutes)
+
+3. **Access the WebAdmin**
+   - URL: http://localhost:8006
+   - Username: `admin`
+   - Password: `admin123`
+   - ⚠️ Change password after first login!
+
+### After Reboot / Quick Restart
+
+```bash
+./re-deploy.sh  # Restarts services, preserves data (~30 sec)
+```
+
+### Shutdown Services
+
+```bash
+./down.sh  # Stops all services, preserves data
+```
+
+### Manual Configuration (Optional)
+
+2. **Configure environment variables manually**
    ```bash
    cp .env.template .env
    # Edit .env with your configuration
