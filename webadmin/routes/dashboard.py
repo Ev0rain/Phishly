@@ -20,4 +20,6 @@ def index():
     stats = campaign_repo.get_dashboard_stats()
     recent_campaigns = campaign_repo.get_recent_campaigns()
 
-    return render_template("dashboard.html", stats=stats, campaigns=recent_campaigns, current_user=current_user)
+    return render_template(
+        "dashboard.html", stats=stats, campaigns=recent_campaigns, current_user=current_user
+    )

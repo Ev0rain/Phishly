@@ -5,14 +5,14 @@ import os
 # Add parent directory to path to import app modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config  # noqa: E402
+from sqlalchemy import pool  # noqa: E402
 
-from alembic import context
+from alembic import context  # noqa: E402
 
 # Import Flask app and database
-from app import create_app
-from database import db
+from app import create_app  # noqa: E402
+from database import db  # noqa: E402
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -22,7 +22,7 @@ config = context.config
 app = create_app()
 
 # Set the database URL from Flask config
-config.set_main_option('sqlalchemy.url', app.config['SQLALCHEMY_DATABASE_URI'])
+config.set_main_option("sqlalchemy.url", app.config["SQLALCHEMY_DATABASE_URI"])
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -77,9 +77,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

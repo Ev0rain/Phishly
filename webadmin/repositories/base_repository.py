@@ -4,7 +4,6 @@ Base Repository for Phishly WebAdmin
 Provides common database operations for all repositories
 """
 
-from abc import ABC
 from database import db
 from sqlalchemy.exc import SQLAlchemyError
 import logging
@@ -12,9 +11,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class BaseRepository(ABC):
+class BaseRepository:  # noqa: B024
     """
-    Abstract base repository with common database operations.
+    Base repository with common database operations.
 
     All repository classes should inherit from this base class to get
     standard CRUD operations and error handling.

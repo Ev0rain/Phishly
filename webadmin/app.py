@@ -53,9 +53,8 @@ def create_app(config=None):
             "pool_pre_ping": True,  # Verify connections before using
             "pool_recycle": 300,  # Recycle connections after 5 minutes
         }
-        print(
-            f"✅ Database configured: {database_url.split('@')[1] if '@' in database_url else 'configured'}"
-        )
+        db_display = database_url.split("@")[1] if "@" in database_url else "configured"
+        print(f"✅ Database configured: {db_display}")
     else:
         print("⚠️  WARNING: DATABASE_URL not set. Database features disabled.")
         app.config["SQLALCHEMY_DATABASE_URI"] = None
@@ -94,7 +93,11 @@ def create_app(config=None):
         print(f"✅ Redis configured: {redis_url}")
         print("✅ Redis sessions enabled with JSON serialization")
     else:
-        print("⚠️  WARNING: REDIS_URL not set. Using filesystem sessions (not recommended for production).")
+        warning_msg = (
+            "⚠️  WARNING: REDIS_URL not set. Using filesystem sessions "
+            "(not recommended for production)."
+        )
+        print(warning_msg)
         app.config["SESSION_TYPE"] = "filesystem"
         app.config["SESSION_PERMANENT"] = True
         app.config["PERMANENT_SESSION_LIFETIME"] = 7200
@@ -105,8 +108,7 @@ def create_app(config=None):
 
     # Only use Secure flag in production (HTTPS)
     if not is_debug:
-            app.config["SESSION_COOKIE_SECURE"] = True
-
+        app.config["SESSION_COOKIE_SECURE"] = True
 
     # Custom configuration override
     if config:
@@ -114,15 +116,18 @@ def create_app(config=None):
 
     # Initialize database
     from database import db
+
     db.init_app(app)
 
     # Initialize Flask-Login (authentication)
     from auth_utils import login_manager
+
     login_manager.init_app(app)
     print("✅ Flask-Login initialized")
 
     # Initialize Flask-Session (Redis or filesystem backed)
     from flask_session import Session
+
     Session(app)
     session_type = app.config.get("SESSION_TYPE", "unknown")
     print(f"✅ Flask-Session initialized with {session_type} backend")
@@ -156,7 +161,7 @@ def create_app(config=None):
         try:
             # Try to access session to trigger any decoding errors
             _ = dict(flask_session)
-        except (UnicodeDecodeError, ValueError, TypeError) as e:
+        except (ValueError, TypeError) as e:
             # Session is corrupted, clear it
             print(f"⚠️  Corrupted session detected: {e}")
             print(f"   Clearing session for: {request.remote_addr}")
@@ -168,22 +173,27 @@ def create_app(config=None):
             if app.config.get("SESSION_TYPE") == "redis":
                 try:
                     from flask import request as req
-                    session_cookie = req.cookies.get(app.config.get("SESSION_COOKIE_NAME", "session"))
+
+                    session_cookie = req.cookies.get(
+                        app.config.get("SESSION_COOKIE_NAME", "session")
+                    )
                     if session_cookie:
                         redis_conn = app.config.get("SESSION_REDIS")
                         if redis_conn:
-                            key = f"{app.config.get('SESSION_KEY_PREFIX', 'session:')}{session_cookie}"
+                            key_prefix = app.config.get("SESSION_KEY_PREFIX", "session:")
+                            key = f"{key_prefix}{session_cookie}"
                             redis_conn.delete(key)
                             print(f"   Deleted corrupted Redis key: {key}")
                 except Exception as redis_err:
                     print(f"   Could not delete Redis key: {redis_err}")
 
             # Redirect to login page if not already there
-            if not request.path.startswith('/login') and not request.path.startswith('/static'):
-                return redirect(url_for('auth.login_page'))
+            if not request.path.startswith("/login") and not request.path.startswith("/static"):
+                return redirect(url_for("auth.login_page"))
 
     # Register CLI commands
     from cli_commands import register_commands
+
     register_commands(app)
 
     # Health check endpoint for Docker

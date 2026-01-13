@@ -5,20 +5,36 @@ Initialize Phishly database and create first admin user
 
 import sys
 import os
+from datetime import datetime
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from app import create_app
-from database import db
+from app import create_app  # noqa: E402
+from database import db  # noqa: E402
+
 # Import ALL models so they're registered with SQLAlchemy metadata
-from db.models import (
-    AdminUser, Department, Target, TargetList, TargetListMember,
-    EmailTemplate, LandingPage, Campaign, CampaignTargetList, CampaignTarget,
-    EmailJob, EventType, Event, FormTemplate, FormQuestion, FormSubmission, FormAnswer
+from db.models import (  # noqa: E402, F401
+    AdminUser,
+    Department,
+    Target,
+    TargetList,
+    TargetListMember,
+    EmailTemplate,
+    LandingPage,
+    Campaign,
+    CampaignTargetList,
+    CampaignTarget,
+    EmailJob,
+    EventType,
+    Event,
+    FormTemplate,
+    FormQuestion,
+    FormSubmission,
+    FormAnswer,
 )
-from werkzeug.security import generate_password_hash
-from datetime import datetime
+from werkzeug.security import generate_password_hash  # noqa: E402
+
 
 def init_database():
     """Initialize database tables"""
@@ -36,8 +52,8 @@ def init_database():
         try:
             admin_count = db.session.query(AdminUser).count()
             print(f"📊 Current admin users: {admin_count}")
-        except Exception as e:
-            print(f"⚠️  Error counting users (tables may not exist yet), creating user anyway...")
+        except Exception:
+            print("⚠️  Error counting users " "(tables may not exist yet), creating user anyway...")
             db.session.rollback()  # Roll back failed transaction
             admin_count = 0
 
@@ -51,22 +67,22 @@ def init_database():
                 password_hash=generate_password_hash("admin123"),
                 full_name="System Administrator",
                 is_active=True,
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
 
             db.session.add(admin)
             db.session.commit()
 
             print("✅ Initial admin user created!")
-            print("\n" + "="*60)
+            print("=" * 60)
             print("📋 LOGIN CREDENTIALS:")
-            print("="*60)
-            print(f"  Username: admin")
-            print(f"  Password: admin123")
-            print(f"  Email:    admin@phishly.local")
-            print("="*60)
+            print("=" * 60)
+            print("  Username: admin")
+            print("  Password: admin123")
+            print("  Email:    admin@phishly.local")
+            print("=" * 60)
             print("\n⚠️  IMPORTANT: Please change the password after first login!")
-            print(f"🌐 Login at: http://localhost:8006/login\n")
+            print("🌐 Login at: http://localhost:8006/login\n")
         else:
             print("\n✅ Admin users already exist in database")
 
@@ -76,12 +92,13 @@ def init_database():
             for user in users:
                 print(f"  - {user.username} ({user.email}) - Active: {user.is_active}")
 
+
 if __name__ == "__main__":
     try:
         init_database()
     except Exception as e:
         print(f"\n❌ Error initializing database: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
-

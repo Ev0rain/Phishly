@@ -216,7 +216,9 @@ class Event(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
     ip_address = Column(String(45))
     user_agent = Column(Text)
-    event_metadata = Column(Text)  # JSON string for additional data (renamed from metadata to avoid SQLAlchemy conflict)
+    event_metadata = Column(
+        Text
+    )  # JSON string for additional data (renamed from metadata to avoid SQLAlchemy conflict)
 
     campaign_target = relationship("CampaignTarget")
     event_type = relationship("EventType")

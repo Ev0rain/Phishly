@@ -18,9 +18,9 @@ logger = logging.getLogger(__name__)
 
 # Initialize Flask-Login
 login_manager = LoginManager()
-login_manager.login_view = 'auth.login_page'
-login_manager.login_message = 'Please log in to access this page.'
-login_manager.login_message_category = 'info'
+login_manager.login_view = "auth.login_page"
+login_manager.login_message = "Please log in to access this page."
+login_manager.login_message_category = "info"
 
 
 # Make AdminUser compatible with Flask-Login
@@ -33,6 +33,12 @@ class AuthenticatedUser(UserMixin):
     """
 
     def __init__(self, admin_user):
+        """
+        Initialize authenticated user wrapper.
+
+        Args:
+            admin_user: AdminUser model instance to wrap
+        """
         self.admin_user = admin_user
         self.id = admin_user.id
         self.username = admin_user.username
@@ -60,7 +66,8 @@ class AuthenticatedUser(UserMixin):
         return False
 
     def __repr__(self):
-        return f'<AuthenticatedUser {self.username}>'
+        """Return string representation of authenticated user."""
+        return f"<AuthenticatedUser {self.username}>"
 
 
 @login_manager.user_loader
@@ -158,7 +165,7 @@ def create_admin_user(username, email, password, full_name=None):
             password_hash=generate_password_hash(password),
             full_name=full_name,
             is_active=True,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
 
         db.session.add(admin_user)

@@ -6,9 +6,9 @@ import os
 conn = psycopg2.connect(
     host="postgres-db",
     port=5432,
-    dbname=os.environ.get('POSTGRES_DB', 'phishly'),
-    user='postgres',  # Use superuser
-    password=os.environ.get('POSTGRES_PASSWORD', '')
+    dbname=os.environ.get("POSTGRES_DB", "phishly"),
+    user="postgres",  # Use superuser
+    password=os.environ.get("POSTGRES_PASSWORD", ""),
 )
 
 cursor = conn.cursor()
@@ -16,7 +16,8 @@ cursor = conn.cursor()
 print("🔧 Creating admin_users table...")
 
 # Create table
-cursor.execute("""
+cursor.execute(
+    """
 CREATE TABLE IF NOT EXISTS admin_users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(100) UNIQUE NOT NULL,
@@ -27,7 +28,8 @@ CREATE TABLE IF NOT EXISTS admin_users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP
 );
-""")
+"""
+)
 conn.commit()
 print("✅ Table created!")
 
@@ -37,22 +39,25 @@ count = cursor.fetchone()[0]
 
 if count == 0:
     print("🔐 Creating admin user...")
-    password_hash = generate_password_hash('admin123')
+    password_hash = generate_password_hash("admin123")
 
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO admin_users (username, email, password_hash, full_name, is_active)
         VALUES (%s, %s, %s, %s, %s)
-    """, ('admin', 'admin@phishly.local', password_hash, 'System Administrator', True))
+    """,
+        ("admin", "admin@phishly.local", password_hash, "System Administrator", True),
+    )
 
     conn.commit()
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("📋 ADMIN USER CREATED:")
-    print("="*60)
+    print("=" * 60)
     print("  Username: admin")
     print("  Password: admin123")
     print("  Email:    admin@phishly.local")
-    print("="*60)
+    print("=" * 60)
     print("⚠️  IMPORTANT: Change password after first login!")
     print("🌐 Login at: http://localhost:8006/login\n")
 else:
@@ -60,4 +65,3 @@ else:
 
 cursor.close()
 conn.close()
-

@@ -77,27 +77,23 @@ def create_user():
 
     # Validate inputs
     if not all([username, email, password]):
-        return jsonify({
-            "success": False,
-            "message": "Username, email, and password are required"
-        }), 400
+        return (
+            jsonify({"success": False, "message": "Username, email, and password are required"}),
+            400,
+        )
 
     if len(password) < 8:
-        return jsonify({
-            "success": False,
-            "message": "Password must be at least 8 characters"
-        }), 400
+        return jsonify({"success": False, "message": "Password must be at least 8 characters"}), 400
 
     # Check if username or email already exists
-    existing_user = db.session.query(AdminUser).filter(
-        (AdminUser.username == username) | (AdminUser.email == email)
-    ).first()
+    existing_user = (
+        db.session.query(AdminUser)
+        .filter((AdminUser.username == username) | (AdminUser.email == email))
+        .first()
+    )
 
     if existing_user:
-        return jsonify({
-            "success": False,
-            "message": "Username or email already exists"
-        }), 400
+        return jsonify({"success": False, "message": "Username or email already exists"}), 400
 
     # Create new user
     try:
@@ -107,44 +103,31 @@ def create_user():
             password_hash=generate_password_hash(password),
             full_name=full_name,
             is_active=True,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         db.session.add(new_user)
         db.session.commit()
 
-        return jsonify({
-            "success": True,
-            "message": f"User '{username}' created successfully"
-        })
+        return jsonify({"success": True, "message": f"User '{username}' created successfully"})
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            "success": False,
-            "message": f"Error creating user: {str(e)}"
-        }), 500
+        return jsonify({"success": False, "message": f"Error creating user: {str(e)}"}), 500
 
 
 @settings_bp.route("/settings/users/<int:user_id>/toggle", methods=["POST"])
 @login_required
 def toggle_user_status(user_id):
     """Toggle user active/inactive status"""
-
     # Prevent deactivating yourself
     if user_id == current_user.id:
-        return jsonify({
-            "success": False,
-            "message": "You cannot deactivate your own account"
-        }), 400
+        return jsonify({"success": False, "message": "You cannot deactivate your own account"}), 400
 
     try:
         user = db.session.get(AdminUser, user_id)
 
         if not user:
-            return jsonify({
-                "success": False,
-                "message": "User not found"
-            }), 404
+            return jsonify({"success": False, "message": "User not found"}), 404
 
         # Toggle status
         user.is_active = not user.is_active
@@ -152,17 +135,13 @@ def toggle_user_status(user_id):
 
         db.session.commit()
 
-        return jsonify({
-            "success": True,
-            "message": f"User '{user.username}' {action} successfully"
-        })
+        return jsonify(
+            {"success": True, "message": f"User '{user.username}' {action} successfully"}
+        )
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            "success": False,
-            "message": f"Error updating user: {str(e)}"
-        }), 500
+        return jsonify({"success": False, "message": f"Error updating user: {str(e)}"}), 500
 
 
 @settings_bp.route("/settings/users/<int:user_id>/reset-password", methods=["POST"])
@@ -172,34 +151,19 @@ def reset_user_password(user_id):
     new_password = request.form.get("new_password")
 
     if not new_password or len(new_password) < 8:
-        return jsonify({
-            "success": False,
-            "message": "Password must be at least 8 characters"
-        }), 400
+        return jsonify({"success": False, "message": "Password must be at least 8 characters"}), 400
 
     try:
         user = db.session.get(AdminUser, user_id)
 
         if not user:
-            return jsonify({
-                "success": False,
-                "message": "User not found"
-            }), 404
+            return jsonify({"success": False, "message": "User not found"}), 404
 
         user.password_hash = generate_password_hash(new_password)
         db.session.commit()
 
-        return jsonify({
-            "success": True,
-            "message": f"Password reset for user '{user.username}'"
-        })
+        return jsonify({"success": True, "message": f"Password reset for user '{user.username}'"})
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            "success": False,
-            "message": f"Error resetting password: {str(e)}"
-        }), 500
-
-
-
+        return jsonify({"success": False, "message": f"Error resetting password: {str(e)}"}), 500

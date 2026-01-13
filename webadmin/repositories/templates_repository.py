@@ -19,32 +19,34 @@ class TemplatesRepository(BaseRepository):
 
     # Directory where template HTML files are stored
     TEMPLATES_DIR = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-        "Templates", "email_templates"
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "Templates", "email_templates"
     )
 
     @staticmethod
     def get_all_templates():
         """Return all email templates with metadata from database"""
         try:
-            templates = db.session.query(EmailTemplate)\
-                .order_by(EmailTemplate.created_at.desc()).all()
+            templates = (
+                db.session.query(EmailTemplate).order_by(EmailTemplate.created_at.desc()).all()
+            )
 
             result = []
             for template in templates:
-                result.append({
-                    "id": template.id,
-                    "name": template.name,
-                    "subject": template.subject,
-                    "from_email": template.from_email,
-                    "from_name": template.from_name,
-                    "created_at": template.created_at,
-                    # For compatibility with existing UI
-                    "filename": f"{template.id}.html",
-                    "tags": [],  # TODO: Add tags support if needed
-                    "last_used": None,  # TODO: Track usage
-                    "times_used": 0,  # TODO: Track usage
-                })
+                result.append(
+                    {
+                        "id": template.id,
+                        "name": template.name,
+                        "subject": template.subject,
+                        "from_email": template.from_email,
+                        "from_name": template.from_name,
+                        "created_at": template.created_at,
+                        # For compatibility with existing UI
+                        "filename": f"{template.id}.html",
+                        "tags": [],  # TODO: Add tags support if needed
+                        "last_used": None,  # TODO: Track usage
+                        "times_used": 0,  # TODO: Track usage
+                    }
+                )
 
             return result
 
@@ -56,8 +58,9 @@ class TemplatesRepository(BaseRepository):
     def get_template_by_id(template_id):
         """Return a single template by ID"""
         try:
-            template = db.session.query(EmailTemplate)\
-                .filter(EmailTemplate.id == template_id).first()
+            template = (
+                db.session.query(EmailTemplate).filter(EmailTemplate.id == template_id).first()
+            )
 
             if not template:
                 return None
@@ -204,7 +207,7 @@ class TemplatesRepository(BaseRepository):
                 from_name=from_name,
                 body_html="",  # Empty placeholder, actual HTML stored in file
                 created_by_id=created_by_id,
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
             db.session.add(new_template)
             db.session.flush()  # Get ID without committing

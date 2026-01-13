@@ -285,12 +285,15 @@ class MockAnalyticsRepository:
                         [
                             "Q4 Security Training",
                             "Executive Phishing Test",
-                            "Finance Department Assessment",
+                            "HR Benefits Update",
                         ]
                     ),
                     "target_email": f"user{random.randint(1, 300)}@company.com",
                     "timestamp": base_time - time_ago,
-                    "ip_address": f"{random.randint(1, 255)}.{random.randint(1, 255)}.{random.randint(1, 255)}.{random.randint(1, 255)}",
+                    "ip_address": (
+                        f"{random.randint(1, 255)}.{random.randint(1, 255)}."
+                        f"{random.randint(1, 255)}.{random.randint(1, 255)}"
+                    ),
                     "device": random.choice(["Desktop", "Mobile", "Tablet"]),
                     "browser": random.choice(["Chrome", "Firefox", "Safari", "Edge"]),
                 }

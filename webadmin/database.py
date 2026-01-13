@@ -7,20 +7,20 @@ for the webadmin application.
 
 import sys
 import os
+import logging
 
 # Add parent directory to path to import db.models
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.exc import SQLAlchemyError
-import logging
+from flask_sqlalchemy import SQLAlchemy  # noqa: E402
+from sqlalchemy.exc import SQLAlchemyError  # noqa: E402
 
 # Initialize Flask-SQLAlchemy extension (app will be attached later)
 db = SQLAlchemy()
 
 # Import all models from db/models.py so they're registered with SQLAlchemy
 # This ensures all tables are created when db.create_all() is called
-from db.models import (
+from db.models import (  # noqa: E402, F401
     AdminUser,
     Department,
     Target,
@@ -87,11 +87,11 @@ def init_event_types():
     Should be called during application initialization or database setup.
     """
     standard_event_types = [
-        ('email_sent', 'Email successfully sent to target'),
-        ('email_opened', 'Target opened the email'),
-        ('link_clicked', 'Target clicked the phishing link'),
-        ('form_submitted', 'Target submitted form data'),
-        ('credentials_captured', 'Target submitted credentials'),
+        ("email_sent", "Email successfully sent to target"),
+        ("email_opened", "Target opened the email"),
+        ("link_clicked", "Target clicked the phishing link"),
+        ("form_submitted", "Target submitted form data"),
+        ("credentials_captured", "Target submitted credentials"),
     ]
 
     for name, description in standard_event_types:
@@ -102,6 +102,7 @@ def init_event_types():
 
 class DatabaseError(Exception):
     """Custom exception for database operations"""
+
     pass
 
 
@@ -111,6 +112,7 @@ def handle_db_error(func):
 
     Automatically rolls back on errors and logs exceptions.
     """
+
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
@@ -122,6 +124,7 @@ def handle_db_error(func):
             db.session.rollback()
             logger.error(f"Unexpected error in {func.__name__}: {e}")
             raise
+
     return wrapper
 
 
@@ -134,7 +137,7 @@ def test_connection():
     """
     try:
         # Simple query to test connection
-        db.session.execute(db.text('SELECT 1'))
+        db.session.execute(db.text("SELECT 1"))
         return True
     except Exception as e:
         logger.error(f"Database connection test failed: {e}")

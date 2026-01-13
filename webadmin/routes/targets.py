@@ -4,7 +4,7 @@ Handles target group management, creation, and CSV import
 """
 
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
-from flask_login import login_required
+from flask_login import login_required, current_user
 from repositories.targets_repository import TargetsRepository
 
 targets_bp = Blueprint("targets", __name__)
@@ -47,7 +47,7 @@ def create():
             return redirect(url_for("targets.index") + "#create")
 
         # Create the group
-        new_group = targets_repo.create_group(name, description, targets_list)
+        targets_repo.create_group(name, description, targets_list)
 
         flash(
             f"Target group '{name}' created successfully with {len(targets_list)} targets",
@@ -102,11 +102,13 @@ def import_csv():
                 return redirect(url_for("targets.index") + "#import")
 
             # Create the group with parsed targets
-            new_group = targets_repo.create_group(
+            targets_repo.create_group(
                 group_name,
                 group_description,
                 result["targets"],
-                created_by_id=current_user.id if hasattr(current_user, 'id') else None
+                created_by_id=current_user.id
+                if current_user and hasattr(current_user, "id")
+                else None,
             )
 
             flash(
@@ -178,7 +180,8 @@ def edit_group(group_id):
     if request.method == "POST":
         # Handle edit form submission
         name = request.form.get("name", "").strip()
-        description = request.form.get("description", "").strip()
+        # description is not used in current implementation
+        # description = request.form.get("description", "").strip()
 
         if not name:
             flash("Group name is required", "error")

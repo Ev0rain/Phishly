@@ -15,15 +15,11 @@ DB_NAME = os.environ.get("POSTGRES_DB", "phishly")
 DB_USER = os.environ.get("POSTGRES_USER", "phishly_admin")
 DB_PASSWORD = os.environ.get("POSTGRES_PASSWORD")
 
+
 def create_admin_users_table():
     """Create admin_users table if it doesn't exist"""
-
     conn = psycopg2.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        dbname=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD
+        host=DB_HOST, port=DB_PORT, dbname=DB_NAME, user=DB_USER, password=DB_PASSWORD
     )
 
     cursor = conn.cursor()
@@ -62,26 +58,23 @@ def create_admin_users_table():
         VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
         """
 
-        cursor.execute(insert_sql, (
-            'admin',
-            'admin@phishly.local',
-            password_hash,
-            'System Administrator',
-            True
-        ))
+        cursor.execute(
+            insert_sql,
+            ("admin", "admin@phishly.local", password_hash, "System Administrator", True),
+        )
 
         conn.commit()
 
         print("✅ Initial admin user created!")
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("📋 LOGIN CREDENTIALS:")
-        print("="*60)
-        print(f"  Username: admin")
-        print(f"  Password: admin123")
-        print(f"  Email:    admin@phishly.local")
-        print("="*60)
+        print("=" * 60)
+        print("  Username: admin")
+        print("  Password: admin123")
+        print("  Email:    admin@phishly.local")
+        print("=" * 60)
         print("\n⚠️  IMPORTANT: Please change the password after first login!")
-        print(f"🌐 Login at: http://localhost:8006/login\n")
+        print("🌐 Login at: http://localhost:8006/login\n")
     else:
         print("\n✅ Admin user already exists")
 
@@ -95,12 +88,13 @@ def create_admin_users_table():
     cursor.close()
     conn.close()
 
+
 if __name__ == "__main__":
     try:
         create_admin_users_table()
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
-

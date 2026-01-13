@@ -22,35 +22,36 @@ class TargetsRepository(BaseRepository):
         """Return all target groups/lists with member counts"""
         try:
             # Query target lists with member count and creator name via join
-            groups_query = db.session.query(
-                TargetList.id,
-                TargetList.name,
-                TargetList.description,
-                TargetList.created_at,
-                TargetList.updated_at,
-                AdminUser.username.label('created_by'),
-                func.count(TargetListMember.id).label('target_count')
-            ).outerjoin(
-                AdminUser, TargetList.created_by_id == AdminUser.id
-            ).outerjoin(
-                TargetListMember, TargetList.id == TargetListMember.target_list_id
-            ).group_by(
-                TargetList.id, AdminUser.username
-            ).order_by(
-                TargetList.created_at.desc()
-            ).all()
+            groups_query = (
+                db.session.query(
+                    TargetList.id,
+                    TargetList.name,
+                    TargetList.description,
+                    TargetList.created_at,
+                    TargetList.updated_at,
+                    AdminUser.username.label("created_by"),
+                    func.count(TargetListMember.id).label("target_count"),
+                )
+                .outerjoin(AdminUser, TargetList.created_by_id == AdminUser.id)
+                .outerjoin(TargetListMember, TargetList.id == TargetListMember.target_list_id)
+                .group_by(TargetList.id, AdminUser.username)
+                .order_by(TargetList.created_at.desc())
+                .all()
+            )
 
             groups = []
             for group in groups_query:
-                groups.append({
-                    "id": group.id,
-                    "name": group.name,
-                    "description": group.description or "",
-                    "target_count": group.target_count,
-                    "created_at": group.created_at,
-                    "updated_at": group.updated_at,
-                    "created_by": group.created_by or "Unknown",
-                })
+                groups.append(
+                    {
+                        "id": group.id,
+                        "name": group.name,
+                        "description": group.description or "",
+                        "target_count": group.target_count,
+                        "created_at": group.created_at,
+                        "updated_at": group.updated_at,
+                        "created_by": group.created_by or "Unknown",
+                    }
+                )
 
             return groups
 
@@ -68,13 +69,20 @@ class TargetsRepository(BaseRepository):
                 return None
 
             # Get member count
-            member_count = db.session.query(func.count(TargetListMember.id))\
-                .filter(TargetListMember.target_list_id == group_id).scalar()
+            member_count = (
+                db.session.query(func.count(TargetListMember.id))
+                .filter(TargetListMember.target_list_id == group_id)
+                .scalar()
+            )
 
             # Get creator name
             created_by = "Unknown"
             if target_list.created_by_id:
-                admin = db.session.query(AdminUser).filter(AdminUser.id == target_list.created_by_id).first()
+                admin = (
+                    db.session.query(AdminUser)
+                    .filter(AdminUser.id == target_list.created_by_id)
+                    .first()
+                )
                 if admin:
                     created_by = admin.username
 
@@ -101,31 +109,33 @@ class TargetsRepository(BaseRepository):
         """Return members (targets) for a specific group"""
         try:
             # Join TargetListMember -> Target -> Department
-            members_query = db.session.query(
-                Target.id,
-                Target.email,
-                Target.first_name,
-                Target.last_name,
-                Target.position,
-                Department.name.label('department_name')
-            ).join(
-                TargetListMember, Target.id == TargetListMember.target_id
-            ).outerjoin(
-                Department, Target.department_id == Department.id
-            ).filter(
-                TargetListMember.target_list_id == group_id
-            ).all()
+            members_query = (
+                db.session.query(
+                    Target.id,
+                    Target.email,
+                    Target.first_name,
+                    Target.last_name,
+                    Target.position,
+                    Department.name.label("department_name"),
+                )
+                .join(TargetListMember, Target.id == TargetListMember.target_id)
+                .outerjoin(Department, Target.department_id == Department.id)
+                .filter(TargetListMember.target_list_id == group_id)
+                .all()
+            )
 
             members = []
             for member in members_query:
-                members.append({
-                    "id": member.id,
-                    "email": member.email,
-                    "first_name": member.first_name or "",
-                    "last_name": member.last_name or "",
-                    "position": member.position or "",
-                    "department": member.department_name or "Unknown",
-                })
+                members.append(
+                    {
+                        "id": member.id,
+                        "email": member.email,
+                        "first_name": member.first_name or "",
+                        "last_name": member.last_name or "",
+                        "position": member.position or "",
+                        "department": member.department_name or "Unknown",
+                    }
+                )
 
             return members
 
@@ -141,9 +151,9 @@ class TargetsRepository(BaseRepository):
             total_targets = db.session.query(func.count(Target.id)).scalar() or 0
 
             # Get most recent group
-            most_recent = db.session.query(TargetList)\
-                .order_by(TargetList.created_at.desc())\
-                .first()
+            most_recent = (
+                db.session.query(TargetList).order_by(TargetList.created_at.desc()).first()
+            )
 
             most_recent_group = None
             if most_recent:
@@ -188,7 +198,7 @@ class TargetsRepository(BaseRepository):
                 description=description,
                 created_by_id=created_by_id,
                 created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                updated_at=datetime.utcnow(),
             )
             db.session.add(new_target_list)
             db.session.flush()  # Get ID without committing
@@ -196,19 +206,23 @@ class TargetsRepository(BaseRepository):
             # Process targets
             for target_data in targets_list:
                 # Check if target exists by email
-                existing_target = db.session.query(Target)\
-                    .filter(Target.email == target_data['email']).first()
+                existing_target = (
+                    db.session.query(Target).filter(Target.email == target_data["email"]).first()
+                )
 
                 if existing_target:
                     target_id = existing_target.id
                 else:
                     # Get or create department
-                    dept_name = target_data.get('department', '').strip()
+                    dept_name = target_data.get("department", "").strip()
                     department_id = None
 
                     if dept_name:
-                        dept = db.session.query(Department)\
-                            .filter(Department.name == dept_name).first()
+                        dept = (
+                            db.session.query(Department)
+                            .filter(Department.name == dept_name)
+                            .first()
+                        )
                         if not dept:
                             dept = Department(name=dept_name)
                             db.session.add(dept)
@@ -217,11 +231,11 @@ class TargetsRepository(BaseRepository):
 
                     # Create new target
                     new_target = Target(
-                        email=target_data['email'],
-                        first_name=target_data.get('first_name', ''),
-                        last_name=target_data.get('last_name', ''),
-                        position=target_data.get('position', ''),
-                        department_id=department_id
+                        email=target_data["email"],
+                        first_name=target_data.get("first_name", ""),
+                        last_name=target_data.get("last_name", ""),
+                        position=target_data.get("position", ""),
+                        department_id=department_id,
                     )
                     db.session.add(new_target)
                     db.session.flush()
@@ -229,8 +243,7 @@ class TargetsRepository(BaseRepository):
 
                 # Add to target list
                 membership = TargetListMember(
-                    target_list_id=new_target_list.id,
-                    target_id=target_id
+                    target_list_id=new_target_list.id, target_id=target_id
                 )
                 db.session.add(membership)
 

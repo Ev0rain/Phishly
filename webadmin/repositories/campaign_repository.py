@@ -7,8 +7,12 @@ Handles all campaign-related database queries for the webadmin
 from repositories.base_repository import BaseRepository
 from database import db, get_event_type_id
 from db.models import (
-    Campaign, CampaignTarget, CampaignTargetList,
-    EmailTemplate, TargetList, Event, EventType
+    Campaign,
+    CampaignTarget,
+    CampaignTargetList,
+    EmailTemplate,
+    TargetList,
+    Event,
 )
 from sqlalchemy import func
 from datetime import datetime
@@ -33,35 +37,63 @@ class CampaignRepository(BaseRepository):
             total_campaigns = db.session.query(func.count(Campaign.id)).scalar() or 0
 
             # Active campaigns
-            active_campaigns = db.session.query(func.count(Campaign.id))\
-                .filter(Campaign.status == 'active').scalar() or 0
+            active_campaigns = (
+                db.session.query(func.count(Campaign.id))
+                .filter(Campaign.status == "active")
+                .scalar()
+                or 0
+            )
 
             # Total unique targets across all campaigns
-            total_targets = db.session.query(func.count(func.distinct(CampaignTarget.target_id))).scalar() or 0
+            total_targets = (
+                db.session.query(func.count(func.distinct(CampaignTarget.target_id))).scalar() or 0
+            )
 
             # Get event type IDs (cached)
-            event_sent_id = get_event_type_id('email_sent')
-            event_opened_id = get_event_type_id('email_opened')
-            event_clicked_id = get_event_type_id('link_clicked')
-            event_submitted_id = get_event_type_id('form_submitted')
+            event_sent_id = get_event_type_id("email_sent")
+            event_opened_id = get_event_type_id("email_opened")
+            event_clicked_id = get_event_type_id("link_clicked")
+            event_submitted_id = get_event_type_id("form_submitted")
 
             # Count events by type
-            emails_sent = db.session.query(func.count(Event.id))\
-                .filter(Event.event_type_id == event_sent_id).scalar() if event_sent_id else 0
+            emails_sent = (
+                db.session.query(func.count(Event.id))
+                .filter(Event.event_type_id == event_sent_id)
+                .scalar()
+                if event_sent_id
+                else 0
+            )
 
-            emails_opened = db.session.query(func.count(func.distinct(Event.campaign_target_id)))\
-                .filter(Event.event_type_id == event_opened_id).scalar() if event_opened_id else 0
+            emails_opened = (
+                db.session.query(func.count(func.distinct(Event.campaign_target_id)))
+                .filter(Event.event_type_id == event_opened_id)
+                .scalar()
+                if event_opened_id
+                else 0
+            )
 
-            links_clicked = db.session.query(func.count(func.distinct(Event.campaign_target_id)))\
-                .filter(Event.event_type_id == event_clicked_id).scalar() if event_clicked_id else 0
+            links_clicked = (
+                db.session.query(func.count(func.distinct(Event.campaign_target_id)))
+                .filter(Event.event_type_id == event_clicked_id)
+                .scalar()
+                if event_clicked_id
+                else 0
+            )
 
-            credentials_submitted = db.session.query(func.count(func.distinct(Event.campaign_target_id)))\
-                .filter(Event.event_type_id == event_submitted_id).scalar() if event_submitted_id else 0
+            credentials_submitted = (
+                db.session.query(func.count(func.distinct(Event.campaign_target_id)))
+                .filter(Event.event_type_id == event_submitted_id)
+                .scalar()
+                if event_submitted_id
+                else 0
+            )
 
             # Calculate rates
             open_rate = round((emails_opened / emails_sent * 100), 1) if emails_sent > 0 else 0.0
             click_rate = round((links_clicked / emails_sent * 100), 1) if emails_sent > 0 else 0.0
-            submission_rate = round((credentials_submitted / emails_sent * 100), 1) if emails_sent > 0 else 0.0
+            submission_rate = (
+                round((credentials_submitted / emails_sent * 100), 1) if emails_sent > 0 else 0.0
+            )
 
             return {
                 "total_campaigns": total_campaigns,
@@ -106,36 +138,52 @@ class CampaignRepository(BaseRepository):
         try:
             campaigns = Campaign.query.order_by(Campaign.created_at.desc()).limit(limit).all()
 
-            event_opened_id = get_event_type_id('email_opened')
-            event_clicked_id = get_event_type_id('link_clicked')
+            event_opened_id = get_event_type_id("email_opened")
+            event_clicked_id = get_event_type_id("link_clicked")
 
             result = []
             for c in campaigns:
                 # Count targets for this campaign
-                targets = db.session.query(func.count(CampaignTarget.id))\
-                    .filter(CampaignTarget.campaign_id == c.id).scalar() or 0
+                targets = (
+                    db.session.query(func.count(CampaignTarget.id))
+                    .filter(CampaignTarget.campaign_id == c.id)
+                    .scalar()
+                    or 0
+                )
 
                 # Count opened events for this campaign
-                opened = db.session.query(func.count(func.distinct(Event.campaign_target_id)))\
-                    .join(CampaignTarget, Event.campaign_target_id == CampaignTarget.id)\
-                    .filter(CampaignTarget.campaign_id == c.id)\
-                    .filter(Event.event_type_id == event_opened_id).scalar() if event_opened_id else 0
+                opened = (
+                    db.session.query(func.count(func.distinct(Event.campaign_target_id)))
+                    .join(CampaignTarget, Event.campaign_target_id == CampaignTarget.id)
+                    .filter(CampaignTarget.campaign_id == c.id)
+                    .filter(Event.event_type_id == event_opened_id)
+                    .scalar()
+                    if event_opened_id
+                    else 0
+                )
 
                 # Count clicked events for this campaign
-                clicked = db.session.query(func.count(func.distinct(Event.campaign_target_id)))\
-                    .join(CampaignTarget, Event.campaign_target_id == CampaignTarget.id)\
-                    .filter(CampaignTarget.campaign_id == c.id)\
-                    .filter(Event.event_type_id == event_clicked_id).scalar() if event_clicked_id else 0
+                clicked = (
+                    db.session.query(func.count(func.distinct(Event.campaign_target_id)))
+                    .join(CampaignTarget, Event.campaign_target_id == CampaignTarget.id)
+                    .filter(CampaignTarget.campaign_id == c.id)
+                    .filter(Event.event_type_id == event_clicked_id)
+                    .scalar()
+                    if event_clicked_id
+                    else 0
+                )
 
-                result.append({
-                    "id": c.id,
-                    "name": c.name,
-                    "status": c.status,
-                    "created_at": c.created_at,
-                    "targets": targets,
-                    "opened": opened or 0,
-                    "clicked": clicked or 0,
-                })
+                result.append(
+                    {
+                        "id": c.id,
+                        "name": c.name,
+                        "status": c.status,
+                        "created_at": c.created_at,
+                        "targets": targets,
+                        "opened": opened or 0,
+                        "clicked": clicked or 0,
+                    }
+                )
 
             return result
 
@@ -154,8 +202,8 @@ class CampaignRepository(BaseRepository):
         try:
             campaigns = Campaign.query.all()
 
-            event_opened_id = get_event_type_id('email_opened')
-            event_clicked_id = get_event_type_id('link_clicked')
+            event_opened_id = get_event_type_id("email_opened")
+            event_clicked_id = get_event_type_id("link_clicked")
 
             result = []
             for c in campaigns:
@@ -170,32 +218,48 @@ class CampaignRepository(BaseRepository):
                         group_name = first_list.target_list.name
 
                 # Count emails sent (campaign targets)
-                emails_sent = db.session.query(func.count(CampaignTarget.id))\
-                    .filter(CampaignTarget.campaign_id == c.id).scalar() or 0
+                emails_sent = (
+                    db.session.query(func.count(CampaignTarget.id))
+                    .filter(CampaignTarget.campaign_id == c.id)
+                    .scalar()
+                    or 0
+                )
 
                 # Count opened
-                opened = db.session.query(func.count(func.distinct(Event.campaign_target_id)))\
-                    .join(CampaignTarget, Event.campaign_target_id == CampaignTarget.id)\
-                    .filter(CampaignTarget.campaign_id == c.id)\
-                    .filter(Event.event_type_id == event_opened_id).scalar() if event_opened_id else 0
+                opened = (
+                    db.session.query(func.count(func.distinct(Event.campaign_target_id)))
+                    .join(CampaignTarget, Event.campaign_target_id == CampaignTarget.id)
+                    .filter(CampaignTarget.campaign_id == c.id)
+                    .filter(Event.event_type_id == event_opened_id)
+                    .scalar()
+                    if event_opened_id
+                    else 0
+                )
 
                 # Count clicked
-                clicked = db.session.query(func.count(func.distinct(Event.campaign_target_id)))\
-                    .join(CampaignTarget, Event.campaign_target_id == CampaignTarget.id)\
-                    .filter(CampaignTarget.campaign_id == c.id)\
-                    .filter(Event.event_type_id == event_clicked_id).scalar() if event_clicked_id else 0
+                clicked = (
+                    db.session.query(func.count(func.distinct(Event.campaign_target_id)))
+                    .join(CampaignTarget, Event.campaign_target_id == CampaignTarget.id)
+                    .filter(CampaignTarget.campaign_id == c.id)
+                    .filter(Event.event_type_id == event_clicked_id)
+                    .scalar()
+                    if event_clicked_id
+                    else 0
+                )
 
-                result.append({
-                    "id": c.id,
-                    "name": c.name,
-                    "template_name": template_name,
-                    "group_name": group_name,
-                    "emails_sent": emails_sent,
-                    "status": c.status,
-                    "created_at": c.created_at,
-                    "opened": opened or 0,
-                    "clicked": clicked or 0,
-                })
+                result.append(
+                    {
+                        "id": c.id,
+                        "name": c.name,
+                        "template_name": template_name,
+                        "group_name": group_name,
+                        "emails_sent": emails_sent,
+                        "status": c.status,
+                        "created_at": c.created_at,
+                        "opened": opened or 0,
+                        "clicked": clicked or 0,
+                    }
+                )
 
             return result
 
@@ -237,17 +301,18 @@ class CampaignRepository(BaseRepository):
         """
         try:
             # Query target lists with member counts
-            target_lists = db.session.query(
-                TargetList.id,
-                TargetList.name,
-                func.count(func.distinct(CampaignTarget.target_id)).label('size')
-            ).outerjoin(
-                CampaignTargetList, TargetList.id == CampaignTargetList.target_list_id
-            ).outerjoin(
-                Campaign, CampaignTargetList.campaign_id == Campaign.id
-            ).outerjoin(
-                CampaignTarget, Campaign.id == CampaignTarget.campaign_id
-            ).group_by(TargetList.id, TargetList.name).all()
+            target_lists = (
+                db.session.query(
+                    TargetList.id,
+                    TargetList.name,
+                    func.count(func.distinct(CampaignTarget.target_id)).label("size"),
+                )
+                .outerjoin(CampaignTargetList, TargetList.id == CampaignTargetList.target_list_id)
+                .outerjoin(Campaign, CampaignTargetList.campaign_id == Campaign.id)
+                .outerjoin(CampaignTarget, Campaign.id == CampaignTarget.campaign_id)
+                .group_by(TargetList.id, TargetList.name)
+                .all()
+            )
 
             return [
                 {
@@ -294,7 +359,15 @@ class CampaignRepository(BaseRepository):
             return None
 
     @staticmethod
-    def create_campaign(name, description, email_template_id, target_list_ids, start_date=None, status='draft', created_by_id=None):
+    def create_campaign(
+        name,
+        description,
+        email_template_id,
+        target_list_ids,
+        start_date=None,
+        status="draft",
+        created_by_id=None,
+    ):
         """
         Create a new campaign with target lists.
 
@@ -320,7 +393,7 @@ class CampaignRepository(BaseRepository):
                 status=status,
                 start_date=start_date or datetime.utcnow(),
                 created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                updated_at=datetime.utcnow(),
             )
             db.session.add(new_campaign)
             db.session.flush()  # Get ID without committing
@@ -328,8 +401,7 @@ class CampaignRepository(BaseRepository):
             # Link target lists to campaign
             for target_list_id in target_list_ids:
                 campaign_target_list = CampaignTargetList(
-                    campaign_id=new_campaign.id,
-                    target_list_id=target_list_id
+                    campaign_id=new_campaign.id, target_list_id=target_list_id
                 )
                 db.session.add(campaign_target_list)
 
@@ -380,4 +452,3 @@ class CampaignRepository(BaseRepository):
             db.session.rollback()
             logger.error(f"Error updating campaign status: {e}")
             return False
-

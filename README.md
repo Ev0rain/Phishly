@@ -48,7 +48,7 @@ Before you begin, ensure you have the following installed:
 
 2. **One-Command Deployment** (Recommended)
    ```bash
-   ./deploy.sh
+   ./docker_phishly-deploy.sh
    ```
 
    This will automatically:
@@ -66,13 +66,13 @@ Before you begin, ensure you have the following installed:
 ### After Reboot / Quick Restart
 
 ```bash
-./re-deploy.sh  # Restarts services, preserves data (~30 sec)
+./docker_phishly-up.sh  # Restarts services, preserves data (~30 sec)
 ```
 
 ### Shutdown Services
 
 ```bash
-./down.sh  # Stops all services, preserves data
+./docker_phishly-down.sh  # Stops all services, preserves data
 ```
 
 ### Manual Configuration (Optional)

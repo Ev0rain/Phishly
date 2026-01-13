@@ -19,13 +19,20 @@ import random
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database import db
-from db.models import (
-    Department, Target, TargetList, TargetListMember,
-    EmailTemplate, Campaign, CampaignTargetList,
-    CampaignTarget, EventType, Event
+from database import db  # noqa: E402
+from db.models import (  # noqa: E402
+    Department,
+    Target,
+    TargetList,
+    TargetListMember,
+    EmailTemplate,
+    Campaign,
+    CampaignTargetList,
+    CampaignTarget,
+    EventType,
+    Event,
 )
-from app import create_app
+from app import create_app  # noqa: E402
 
 
 def seed_event_types():
@@ -87,12 +94,50 @@ def seed_targets(departments):
     """Seed sample targets"""
     print("\n👥 Seeding targets...")
 
-    first_names = ["John", "Jane", "Mike", "Sarah", "David", "Emily", "Robert", "Lisa",
-                   "James", "Mary", "Michael", "Patricia", "William", "Jennifer", "Richard"]
-    last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller",
-                  "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Wilson"]
-    positions = ["Manager", "Senior Analyst", "Coordinator", "Director", "Specialist",
-                 "Associate", "VP", "Lead", "Executive", "Administrator"]
+    first_names = [
+        "John",
+        "Jane",
+        "Mike",
+        "Sarah",
+        "David",
+        "Emily",
+        "Robert",
+        "Lisa",
+        "James",
+        "Mary",
+        "Michael",
+        "Patricia",
+        "William",
+        "Jennifer",
+        "Richard",
+    ]
+    last_names = [
+        "Smith",
+        "Johnson",
+        "Williams",
+        "Brown",
+        "Jones",
+        "Garcia",
+        "Miller",
+        "Davis",
+        "Rodriguez",
+        "Martinez",
+        "Hernandez",
+        "Lopez",
+        "Wilson",
+    ]
+    positions = [
+        "Manager",
+        "Senior Analyst",
+        "Coordinator",
+        "Director",
+        "Specialist",
+        "Associate",
+        "VP",
+        "Lead",
+        "Executive",
+        "Administrator",
+    ]
 
     targets = []
     for i in range(30):
@@ -111,7 +156,7 @@ def seed_targets(departments):
             first_name=first,
             last_name=last,
             position=random.choice(positions),
-            department_id=random.choice(departments).id
+            department_id=random.choice(departments).id,
         )
         db.session.add(target)
         targets.append(target)
@@ -126,11 +171,26 @@ def seed_email_templates():
     print("\n📧 Seeding email templates...")
 
     templates_data = [
-        ("CEO Email Compromise", "Urgent: Wire Transfer Required", "ceo@company.com", "CEO John Smith"),
+        (
+            "CEO Email Compromise",
+            "Urgent: Wire Transfer Required",
+            "ceo@company.com",
+            "CEO John Smith",
+        ),
         ("Invoice Request", "RE: Invoice #2024-1847", "billing@company.com", "Billing Department"),
         ("Password Reset Request", "Reset Your Password", "noreply@company.com", "IT Support"),
-        ("HR Benefits Update", "Important: Benefits Enrollment", "hr@company.com", "Human Resources"),
-        ("IT Security Alert", "Security Update Required", "security@company.com", "IT Security Team"),
+        (
+            "HR Benefits Update",
+            "Important: Benefits Enrollment",
+            "hr@company.com",
+            "Human Resources",
+        ),
+        (
+            "IT Security Alert",
+            "Security Update Required",
+            "security@company.com",
+            "IT Security Team",
+        ),
     ]
 
     templates = []
@@ -146,7 +206,7 @@ def seed_email_templates():
             subject=subject,
             from_email=from_email,
             from_name=from_name,
-            created_at=datetime.utcnow() - timedelta(days=random.randint(10, 90))
+            created_at=datetime.utcnow() - timedelta(days=random.randint(10, 90)),
         )
         db.session.add(template)
         templates.append(template)
@@ -175,7 +235,7 @@ def seed_target_lists(targets, departments):
             name=list_name,
             description=f"All members of {dept.name} department",
             created_at=datetime.utcnow() - timedelta(days=random.randint(20, 120)),
-            updated_at=datetime.utcnow() - timedelta(days=random.randint(1, 20))
+            updated_at=datetime.utcnow() - timedelta(days=random.randint(1, 20)),
         )
         db.session.add(target_list)
         db.session.flush()
@@ -183,10 +243,7 @@ def seed_target_lists(targets, departments):
         # Add targets from this department
         dept_targets = [t for t in targets if t.department_id == dept.id]
         for target in dept_targets[:10]:  # Max 10 per list
-            membership = TargetListMember(
-                target_list_id=target_list.id,
-                target_id=target.id
-            )
+            membership = TargetListMember(target_list_id=target_list.id, target_id=target.id)
             db.session.add(membership)
 
         target_lists.append(target_list)
@@ -209,9 +266,7 @@ def seed_campaigns(templates, target_lists):
     ]
 
     # Get event type IDs
-    event_types = {
-        et.name: et.id for et in db.session.query(EventType).all()
-    }
+    event_types = {et.name: et.id for et in db.session.query(EventType).all()}
 
     for i, name in enumerate(campaign_names):
         existing = db.session.query(Campaign).filter(Campaign.name == name).first()
@@ -226,33 +281,31 @@ def seed_campaigns(templates, target_lists):
         start_date = datetime.utcnow() - timedelta(days=random.randint(5, 60))
         campaign = Campaign(
             name=name,
-            status=random.choice(['active', 'completed', 'completed']),
+            status=random.choice(["active", "completed", "completed"]),
             email_template_id=template.id,
             start_date=start_date,
             created_at=start_date - timedelta(days=2),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.utcnow(),
         )
         db.session.add(campaign)
         db.session.flush()
 
         # Link target list to campaign
-        campaign_list = CampaignTargetList(
-            campaign_id=campaign.id,
-            target_list_id=target_list.id
-        )
+        campaign_list = CampaignTargetList(campaign_id=campaign.id, target_list_id=target_list.id)
         db.session.add(campaign_list)
         db.session.flush()
 
         # Get targets from the list
-        members = db.session.query(TargetListMember)\
-            .filter(TargetListMember.target_list_id == target_list.id).all()
+        members = (
+            db.session.query(TargetListMember)
+            .filter(TargetListMember.target_list_id == target_list.id)
+            .all()
+        )
 
         # Create campaign targets and events
         for member in members:
             campaign_target = CampaignTarget(
-                campaign_id=campaign.id,
-                target_id=member.target_id,
-                status='sent'
+                campaign_id=campaign.id, target_id=member.target_id, status="sent"
             )
             db.session.add(campaign_target)
             db.session.flush()
@@ -261,11 +314,15 @@ def seed_campaigns(templates, target_lists):
             base_time = start_date + timedelta(hours=random.randint(1, 48))
 
             # Email sent (always happens)
+            ip_address = (
+                f"{random.randint(1, 255)}.{random.randint(1, 255)}."
+                f"{random.randint(1, 255)}.{random.randint(1, 255)}"
+            )
             event_sent = Event(
                 campaign_target_id=campaign_target.id,
-                event_type_id=event_types['email_sent'],
+                event_type_id=event_types["email_sent"],
                 created_at=base_time,
-                ip_address=f"{random.randint(1, 255)}.{random.randint(1, 255)}.{random.randint(1, 255)}.{random.randint(1, 255)}"
+                ip_address=ip_address,
             )
             db.session.add(event_sent)
 
@@ -273,9 +330,9 @@ def seed_campaigns(templates, target_lists):
             if random.random() < 0.6:
                 event_opened = Event(
                     campaign_target_id=campaign_target.id,
-                    event_type_id=event_types['email_opened'],
+                    event_type_id=event_types["email_opened"],
                     created_at=base_time + timedelta(minutes=random.randint(5, 300)),
-                    ip_address=event_sent.ip_address
+                    ip_address=event_sent.ip_address,
                 )
                 db.session.add(event_opened)
 
@@ -283,9 +340,9 @@ def seed_campaigns(templates, target_lists):
                 if random.random() < 0.4:
                     event_clicked = Event(
                         campaign_target_id=campaign_target.id,
-                        event_type_id=event_types['link_clicked'],
+                        event_type_id=event_types["link_clicked"],
                         created_at=base_time + timedelta(minutes=random.randint(10, 320)),
-                        ip_address=event_sent.ip_address
+                        ip_address=event_sent.ip_address,
                     )
                     db.session.add(event_clicked)
 
@@ -293,9 +350,9 @@ def seed_campaigns(templates, target_lists):
                     if random.random() < 0.5:
                         event_submitted = Event(
                             campaign_target_id=campaign_target.id,
-                            event_type_id=event_types['form_submitted'],
+                            event_type_id=event_types["form_submitted"],
                             created_at=base_time + timedelta(minutes=random.randint(15, 330)),
-                            ip_address=event_sent.ip_address
+                            ip_address=event_sent.ip_address,
                         )
                         db.session.add(event_submitted)
 
@@ -331,10 +388,10 @@ def main():
         except Exception as e:
             print(f"\n❌ Error seeding database: {e}")
             import traceback
+
             traceback.print_exc()
             return 1
 
 
 if __name__ == "__main__":
     sys.exit(main())
-

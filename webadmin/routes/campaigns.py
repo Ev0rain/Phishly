@@ -2,7 +2,7 @@
 Campaigns Blueprint - Campaign management and creation
 """
 
-from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 from repositories.campaign_repository import CampaignRepository
 from database import db
@@ -25,7 +25,7 @@ REDIS_PORT = os.getenv("REDIS_PORT", "6379")
 celery_app = Celery(
     "phishly",
     broker=f"redis://{REDIS_HOST}:{REDIS_PORT}/1",
-    backend=f"redis://{REDIS_HOST}:{REDIS_PORT}/2"
+    backend=f"redis://{REDIS_HOST}:{REDIS_PORT}/2",
 )
 
 
@@ -55,26 +55,20 @@ def create():
 
     # Validate required fields
     if not campaign_name or not template_id:
-        return jsonify({
-            "success": False,
-            "message": "Campaign name and template are required"
-        }), 400
+        return (
+            jsonify({"success": False, "message": "Campaign name and template are required"}),
+            400,
+        )
 
     # Convert IDs to integers
     try:
         template_id = int(template_id)
         group_ids = [int(gid) for gid in group_ids if gid]
     except ValueError:
-        return jsonify({
-            "success": False,
-            "message": "Invalid template or group ID"
-        }), 400
+        return jsonify({"success": False, "message": "Invalid template or group ID"}), 400
 
     if not group_ids:
-        return jsonify({
-            "success": False,
-            "message": "At least one target group is required"
-        }), 400
+        return jsonify({"success": False, "message": "At least one target group is required"}), 400
 
     # Create campaign in database
     campaign = campaign_repo.create_campaign(
@@ -82,21 +76,23 @@ def create():
         description=description,
         email_template_id=template_id,
         target_list_ids=group_ids,
-        status='draft',
-        created_by_id=current_user.id if hasattr(current_user, 'id') else None
+        status="draft",
+        created_by_id=current_user.id if hasattr(current_user, "id") else None,
     )
 
     if campaign:
-        return jsonify({
-            "success": True,
-            "message": f"Campaign '{campaign_name}' created successfully",
-            "campaign": campaign
-        })
+        return jsonify(
+            {
+                "success": True,
+                "message": f"Campaign '{campaign_name}' created successfully",
+                "campaign": campaign,
+            }
+        )
     else:
-        return jsonify({
-            "success": False,
-            "message": "Failed to create campaign. Please check logs."
-        }), 500
+        return (
+            jsonify({"success": False, "message": "Failed to create campaign. Please check logs."}),
+            500,
+        )
 
 
 @campaigns_bp.route("/campaigns/<int:campaign_id>/launch", methods=["POST"])
@@ -110,30 +106,19 @@ def launch_campaign(campaign_id):
         campaign = db.session.get(Campaign, campaign_id)
 
         if not campaign:
-            return jsonify({
-                "success": False,
-                "message": "Campaign not found"
-            }), 404
+            return jsonify({"success": False, "message": "Campaign not found"}), 404
 
-        if campaign.status == 'active':
-            return jsonify({
-                "success": False,
-                "message": "Campaign is already active"
-            }), 400
+        if campaign.status == "active":
+            return jsonify({"success": False, "message": "Campaign is already active"}), 400
 
         # Get all targets for this campaign
-        campaign_targets = db.session.query(CampaignTarget)\
-            .filter_by(campaign_id=campaign_id)\
-            .all()
+        campaign_targets = db.session.query(CampaignTarget).filter_by(campaign_id=campaign_id).all()
 
         if not campaign_targets:
-            return jsonify({
-                "success": False,
-                "message": "Campaign has no targets"
-            }), 400
+            return jsonify({"success": False, "message": "Campaign has no targets"}), 400
 
         # Update campaign status
-        campaign.status = 'active'
+        campaign.status = "active"
         campaign.launch_date = datetime.utcnow()
 
         # Create email jobs and trigger Celery tasks
@@ -144,8 +129,8 @@ def launch_campaign(campaign_id):
             # Create email job record
             email_job = EmailJob(
                 campaign_target_id=campaign_target.id,
-                status='queued',
-                scheduled_time=datetime.utcnow()
+                status="queued",
+                scheduled_time=datetime.utcnow(),
             )
             db.session.add(email_job)
             db.session.flush()  # Get the email_job.id
@@ -159,43 +144,50 @@ def launch_campaign(campaign_id):
                 if target:
                     # Queue the task asynchronously
                     task = celery_app.send_task(
-                        'tasks.send_phishing_email',
+                        "tasks.send_phishing_email",
                         args=[campaign_id, target.id],
                         kwargs={},
-                        queue='default'
+                        queue="default",
                     )
 
                     # Update email job with Celery task ID
                     email_job.celery_task_id = task.id
                     tasks_queued += 1
 
-                    logger.info(f"Queued Celery task {task.id} for campaign {campaign_id}, target {target.id}")
+                    log_msg = (
+                        f"Queued Celery task {task.id} for campaign "
+                        f"{campaign_id}, target {target.id}"
+                    )
+                    logger.info(log_msg)
                 else:
                     logger.warning(f"Target {campaign_target.target_id} not found, skipping")
-                    email_job.status = 'failed'
-                    email_job.error_message = 'Target not found'
+                    email_job.status = "failed"
+                    email_job.error_message = "Target not found"
 
             except Exception as task_error:
                 logger.error(f"Error queuing Celery task: {task_error}")
-                email_job.status = 'failed'
+                email_job.status = "failed"
                 email_job.error_message = str(task_error)
 
         db.session.commit()
 
-        return jsonify({
-            "success": True,
-            "message": f"Campaign launched! {jobs_created} email jobs created, {tasks_queued} tasks queued for sending.",
-            "jobs_created": jobs_created,
-            "tasks_queued": tasks_queued
-        })
+        success_msg = (
+            f"Campaign launched! {jobs_created} email jobs created, "
+            f"{tasks_queued} tasks queued for sending."
+        )
+        return jsonify(
+            {
+                "success": True,
+                "message": success_msg,
+                "jobs_created": jobs_created,
+                "tasks_queued": tasks_queued,
+            }
+        )
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error launching campaign: {e}", exc_info=True)
-        return jsonify({
-            "success": False,
-            "message": f"Error launching campaign: {str(e)}"
-        }), 500
+        return jsonify({"success": False, "message": f"Error launching campaign: {str(e)}"}), 500
 
 
 @campaigns_bp.route("/campaigns/<int:campaign_id>/pause", methods=["POST"])
@@ -208,32 +200,23 @@ def pause_campaign(campaign_id):
         campaign = db.session.get(Campaign, campaign_id)
 
         if not campaign:
-            return jsonify({
-                "success": False,
-                "message": "Campaign not found"
-            }), 404
+            return jsonify({"success": False, "message": "Campaign not found"}), 404
 
-        if campaign.status != 'active':
-            return jsonify({
-                "success": False,
-                "message": "Only active campaigns can be paused"
-            }), 400
+        if campaign.status != "active":
+            return (
+                jsonify({"success": False, "message": "Only active campaigns can be paused"}),
+                400,
+            )
 
-        campaign.status = 'paused'
+        campaign.status = "paused"
         campaign.completed_date = datetime.utcnow()
         db.session.commit()
 
-        return jsonify({
-            "success": True,
-            "message": "Campaign paused successfully"
-        })
+        return jsonify({"success": True, "message": "Campaign paused successfully"})
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            "success": False,
-            "message": f"Error pausing campaign: {str(e)}"
-        }), 500
+        return jsonify({"success": False, "message": f"Error pausing campaign: {str(e)}"}), 500
 
 
 @campaigns_bp.route("/campaigns/<int:campaign_id>/delete", methods=["POST", "DELETE"])
@@ -246,30 +229,24 @@ def delete_campaign(campaign_id):
         campaign = db.session.get(Campaign, campaign_id)
 
         if not campaign:
-            return jsonify({
-                "success": False,
-                "message": "Campaign not found"
-            }), 404
+            return jsonify({"success": False, "message": "Campaign not found"}), 404
 
-        if campaign.status == 'active':
-            return jsonify({
-                "success": False,
-                "message": "Cannot delete active campaign. Pause it first."
-            }), 400
+        if campaign.status == "active":
+            return (
+                jsonify(
+                    {"success": False, "message": "Cannot delete active campaign. Pause it first."}
+                ),
+                400,
+            )
 
         campaign_name = campaign.name
         db.session.delete(campaign)
         db.session.commit()
 
-        return jsonify({
-            "success": True,
-            "message": f"Campaign '{campaign_name}' deleted successfully"
-        })
+        return jsonify(
+            {"success": True, "message": f"Campaign '{campaign_name}' deleted successfully"}
+        )
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            "success": False,
-            "message": f"Error deleting campaign: {str(e)}"
-        }), 500
-
+        return jsonify({"success": False, "message": f"Error deleting campaign: {str(e)}"}), 500

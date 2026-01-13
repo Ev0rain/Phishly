@@ -4,9 +4,8 @@ Handles template listing, preview, and import functionality
 """
 
 from flask import Blueprint, render_template, request, jsonify
-from flask_login import login_required
+from flask_login import login_required, current_user
 from repositories.templates_repository import TemplatesRepository
-from werkzeug.utils import secure_filename
 
 templates_bp = Blueprint("templates", __name__)
 templates_repo = TemplatesRepository()
@@ -57,7 +56,7 @@ def import_template():
     # Get form data
     name = request.form.get("name")
     subject = request.form.get("subject")
-    tags_string = request.form.get("tags", "")
+    # tags_string = request.form.get("tags", "")  # Not currently used
 
     # Validate required fields
     if not name or not subject:
@@ -102,10 +101,16 @@ def import_template():
         from_email=from_email,
         from_name=from_name,
         html_content=html_content,
-        created_by_id=current_user.id if hasattr(current_user, 'id') else None
+        created_by_id=current_user.id if current_user and hasattr(current_user, "id") else None,
     )
 
     if success:
-        return jsonify({"success": True, "message": f"Template '{name}' imported successfully", "template_id": template_id})
+        return jsonify(
+            {
+                "success": True,
+                "message": f"Template '{name}' imported successfully",
+                "template_id": template_id,
+            }
+        )
     else:
         return jsonify({"success": False, "message": message}), 500

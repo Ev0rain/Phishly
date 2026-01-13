@@ -20,9 +20,7 @@ targets_repo = TargetsRepository()
 @analytics_bp.route("/analytics")
 @login_required
 def index():
-    """Display analytics dashboard with comprehensive metrics"""
-
-    # Get overall statistics
+    """Analytics dashboard with charts and metrics"""
     overall_stats = analytics_repo.get_overall_stats()
 
     # Get campaign performance data
