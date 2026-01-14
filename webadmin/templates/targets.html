@@ -280,6 +280,58 @@ jane.smith@company.com,Jane,Smith,Marketing Manager,Marketing</pre>
         </div>
     </div>
 
+    <!-- Edit Group Modal -->
+    <div class="modal" id="editGroupModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Target Group</h2>
+                <button class="modal-close" id="closeEditModal">&times;</button>
+            </div>
+
+            <form id="editGroupForm" class="modal-body">
+                <input type="hidden" id="editGroupId" name="group_id">
+
+                <div class="form-group">
+                    <label for="editGroupName">Group Name *</label>
+                    <input
+                        type="text"
+                        id="editGroupName"
+                        name="name"
+                        placeholder="e.g., Finance Department"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="editGroupDescription">Description</label>
+                    <textarea
+                        id="editGroupDescription"
+                        name="description"
+                        rows="3"
+                        placeholder="Optional description for this group"
+                    ></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="editGroupTargets">Target Emails *</label>
+                    <textarea
+                        id="editGroupTargets"
+                        name="targets"
+                        rows="8"
+                        placeholder="Loading members..."
+                        required
+                    ></textarea>
+                    <small class="form-hint">Enter one email address per line. Add or remove emails as needed.</small>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" id="cancelEditBtn">Cancel</button>
+                    <button type="submit" class="btn-primary">Update Group</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/targets.js') }}"></script>
 </body>
 </html>

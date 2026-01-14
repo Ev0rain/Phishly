@@ -316,3 +316,165 @@ class TargetsRepository(BaseRepository):
             "errors": errors,
             "count": len(targets),
         }
+
+    @staticmethod
+    def update_group(group_id, name, description):
+        """
+        Update a target group's name and description
+
+        Args:
+            group_id: ID of the group to update
+            name: New group name
+            description: New group description
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            target_list = (
+                db.session.query(TargetList).filter(TargetList.id == group_id).first()
+            )
+
+            if not target_list:
+                logger.error(f"Target list {group_id} not found")
+                return False
+
+            target_list.name = name
+            target_list.description = description
+            target_list.updated_at = datetime.utcnow()
+
+            db.session.commit()
+
+            logger.info(f"Updated target list {group_id}: {name}")
+            return True
+
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error updating target list {group_id}: {e}")
+            return False
+
+    @staticmethod
+    def delete_group(group_id):
+        """
+        Delete a target group and its memberships
+
+        Args:
+            group_id: ID of the group to delete
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Delete all memberships first
+            db.session.query(TargetListMember).filter(
+                TargetListMember.target_list_id == group_id
+            ).delete()
+
+            # Delete the target list
+            target_list = (
+                db.session.query(TargetList).filter(TargetList.id == group_id).first()
+            )
+
+            if not target_list:
+                logger.error(f"Target list {group_id} not found")
+                return False
+
+            db.session.delete(target_list)
+            db.session.commit()
+
+            logger.info(f"Deleted target list {group_id}")
+            return True
+
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error deleting target list {group_id}: {e}")
+            return False
+
+    @staticmethod
+    def update_group_with_members(group_id, name, description, targets_list):
+        """
+        Update a target group's name, description, and members
+
+        Args:
+            group_id: ID of the group to update
+            name: New group name
+            description: New group description
+            targets_list: List of target dictionaries with email, first_name, last_name, etc.
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            target_list = (
+                db.session.query(TargetList).filter(TargetList.id == group_id).first()
+            )
+
+            if not target_list:
+                logger.error(f"Target list {group_id} not found")
+                return False
+
+            # Update basic fields
+            target_list.name = name
+            target_list.description = description
+            target_list.updated_at = datetime.utcnow()
+
+            # Remove all existing memberships
+            db.session.query(TargetListMember).filter(
+                TargetListMember.target_list_id == group_id
+            ).delete()
+
+            # Add new memberships
+            for target_data in targets_list:
+                # Check if target exists by email
+                existing_target = (
+                    db.session.query(Target).filter(Target.email == target_data["email"]).first()
+                )
+
+                if existing_target:
+                    target_id = existing_target.id
+                else:
+                    # Get or create department
+                    dept_name = target_data.get("department", "").strip()
+                    department_id = None
+
+                    if dept_name:
+                        dept = (
+                            db.session.query(Department)
+                            .filter(Department.name == dept_name)
+                            .first()
+                        )
+                        if not dept:
+                            dept = Department(name=dept_name)
+                            db.session.add(dept)
+                            db.session.flush()
+                        department_id = dept.id
+
+                    # Create new target
+                    new_target = Target(
+                        email=target_data["email"],
+                        first_name=target_data.get("first_name", ""),
+                        last_name=target_data.get("last_name", ""),
+                        position=target_data.get("position", ""),
+                        department_id=department_id,
+                    )
+                    db.session.add(new_target)
+                    db.session.flush()
+                    target_id = new_target.id
+
+                # Add to target list
+                membership = TargetListMember(
+                    target_list_id=group_id, target_id=target_id
+                )
+                db.session.add(membership)
+
+            db.session.commit()
+
+            logger.info(
+                f"Updated target list {group_id}: {name} with {len(targets_list)} targets"
+            )
+            return True
+
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error updating target list {group_id} with members: {e}")
+            return False

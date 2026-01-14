@@ -56,7 +56,7 @@ def get_or_create_event_type(name, description=None):
     Returns:
         EventType object
     """
-    event_type = EventType.query.filter_by(name=name).first()
+    event_type = db.session.query(EventType).filter_by(name=name).first()
 
     if not event_type:
         event_type = EventType(name=name, description=description)
@@ -77,8 +77,10 @@ def get_event_type_id(name):
     Returns:
         Event type ID or None if not found
     """
-    event_type = EventType.query.filter_by(name=name).with_entities(EventType.id).first()
-    return event_type.id if event_type else None
+    event_type = (
+        db.session.query(EventType.id).filter_by(name=name).first()
+    )
+    return event_type[0] if event_type else None
 
 
 def init_event_types():

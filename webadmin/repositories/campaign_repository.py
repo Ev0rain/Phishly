@@ -12,6 +12,7 @@ from db.models import (
     CampaignTargetList,
     EmailTemplate,
     TargetList,
+    TargetListMember,
     Event,
 )
 from sqlalchemy import func
@@ -136,7 +137,7 @@ class CampaignRepository(BaseRepository):
             list: Recent campaigns with stats
         """
         try:
-            campaigns = Campaign.query.order_by(Campaign.created_at.desc()).limit(limit).all()
+            campaigns = db.session.query(Campaign).order_by(Campaign.created_at.desc()).limit(limit).all()
 
             event_opened_id = get_event_type_id("email_opened")
             event_clicked_id = get_event_type_id("link_clicked")
@@ -200,7 +201,7 @@ class CampaignRepository(BaseRepository):
             list: All campaigns with template name, group name, and metrics
         """
         try:
-            campaigns = Campaign.query.all()
+            campaigns = db.session.query(Campaign).all()
 
             event_opened_id = get_event_type_id("email_opened")
             event_clicked_id = get_event_type_id("link_clicked")
@@ -339,7 +340,7 @@ class CampaignRepository(BaseRepository):
             dict: Campaign details or None if not found
         """
         try:
-            campaign = Campaign.query.get(campaign_id)
+            campaign = db.session.query(Campaign).get(campaign_id)
 
             if not campaign:
                 return None
@@ -398,17 +399,49 @@ class CampaignRepository(BaseRepository):
             db.session.add(new_campaign)
             db.session.flush()  # Get ID without committing
 
-            # Link target lists to campaign
+            # Link target lists to campaign and create individual campaign targets
+            targets_added = 0
             for target_list_id in target_list_ids:
+                # Link the target list to campaign
                 campaign_target_list = CampaignTargetList(
                     campaign_id=new_campaign.id, target_list_id=target_list_id
                 )
                 db.session.add(campaign_target_list)
 
+                # Get all targets from this list
+                target_members = (
+                    db.session.query(TargetListMember)
+                    .filter(TargetListMember.target_list_id == target_list_id)
+                    .all()
+                )
+
+                # Create CampaignTarget entry for each target
+                for member in target_members:
+                    # Check if this target is already added (avoid duplicates if in multiple lists)
+                    existing = (
+                        db.session.query(CampaignTarget)
+                        .filter(
+                            CampaignTarget.campaign_id == new_campaign.id,
+                            CampaignTarget.target_id == member.target_id,
+                        )
+                        .first()
+                    )
+
+                    if not existing:
+                        campaign_target = CampaignTarget(
+                            campaign_id=new_campaign.id,
+                            target_id=member.target_id,
+                            status="pending",
+                        )
+                        db.session.add(campaign_target)
+                        targets_added += 1
+
             # Commit all changes
             db.session.commit()
 
-            logger.info(f"Created campaign: {name} (ID: {new_campaign.id})")
+            logger.info(
+                f"Created campaign: {name} (ID: {new_campaign.id}) with {targets_added} targets"
+            )
 
             return {
                 "id": new_campaign.id,
@@ -437,7 +470,7 @@ class CampaignRepository(BaseRepository):
             bool: True if successful, False otherwise
         """
         try:
-            campaign = Campaign.query.get(campaign_id)
+            campaign = db.session.query(Campaign).get(campaign_id)
             if not campaign:
                 return False
 

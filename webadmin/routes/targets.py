@@ -36,18 +36,39 @@ def create():
 
         # Get targets from textarea (one email per line)
         targets_text = request.form.get("targets", "").strip()
-        targets_list = [email.strip() for email in targets_text.split("\n") if email.strip()]
+        email_list = [email.strip() for email in targets_text.split("\n") if email.strip()]
 
         if not name:
             flash("Group name is required", "error")
             return redirect(url_for("targets.index") + "#create")
 
-        if not targets_list:
+        if not email_list:
             flash("At least one target email is required", "error")
             return redirect(url_for("targets.index") + "#create")
 
+        # Convert email strings to target dictionaries (required format for repository)
+        targets_list = [
+            {
+                "email": email,
+                "first_name": "",
+                "last_name": "",
+                "position": "",
+                "department": "",
+            }
+            for email in email_list
+        ]
+
         # Create the group
-        targets_repo.create_group(name, description, targets_list)
+        result = targets_repo.create_group(
+            name,
+            description,
+            targets_list,
+            created_by_id=current_user.id if current_user and hasattr(current_user, "id") else None,
+        )
+
+        if not result:
+            flash("Error creating target group", "error")
+            return redirect(url_for("targets.index") + "#create")
 
         flash(
             f"Target group '{name}' created successfully with {len(targets_list)} targets",
@@ -161,38 +182,66 @@ def get_group_members(group_id):
 @login_required
 def delete_group(group_id):
     """Delete a target group"""
-    # In production, this would delete from database
-    # For now, just show success message
-    flash("Target group deleted successfully", "success")
+    try:
+        result = targets_repo.delete_group(group_id)
+        if result:
+            flash("Target group deleted successfully", "success")
+        else:
+            flash("Error deleting target group", "error")
+    except Exception as e:
+        flash(f"Error deleting target group: {str(e)}", "error")
+
     return redirect(url_for("targets.index"))
 
 
-@targets_bp.route("/targets/<int:group_id>/edit", methods=["GET", "POST"])
+@targets_bp.route("/targets/<int:group_id>/edit", methods=["POST"])
 @login_required
 def edit_group(group_id):
-    """Edit a target group"""
+    """Edit a target group (name, description, and members)"""
     group = targets_repo.get_group_by_id(group_id)
 
     if not group:
-        flash("Target group not found", "error")
-        return redirect(url_for("targets.index"))
+        return jsonify({"success": False, "message": "Target group not found"}), 404
 
-    if request.method == "POST":
-        # Handle edit form submission
-        name = request.form.get("name", "").strip()
-        # description is not used in current implementation
-        # description = request.form.get("description", "").strip()
+    # Get form data
+    name = request.form.get("name", "").strip()
+    description = request.form.get("description", "").strip()
+    targets_text = request.form.get("targets", "").strip()
 
-        if not name:
-            flash("Group name is required", "error")
-            return redirect(url_for("targets.edit_group", group_id=group_id))
+    if not name:
+        return jsonify({"success": False, "message": "Group name is required"}), 400
 
-        # In production, update database here
-        flash(f"Target group '{name}' updated successfully", "success")
-        return redirect(url_for("targets.index"))
+    # Parse email list
+    email_list = [email.strip() for email in targets_text.split("\n") if email.strip()]
 
-    # GET request - show edit form
-    return render_template(
-        "targets_edit.html",
-        group=group,
-    )
+    if not email_list:
+        return jsonify({"success": False, "message": "At least one target email is required"}), 400
+
+    # Convert email strings to target dictionaries (required format for repository)
+    targets_list = [
+        {
+            "email": email,
+            "first_name": "",
+            "last_name": "",
+            "position": "",
+            "department": "",
+        }
+        for email in email_list
+    ]
+
+    # Update database
+    try:
+        result = targets_repo.update_group_with_members(
+            group_id, name=name, description=description, targets_list=targets_list
+        )
+        if result:
+            return jsonify(
+                {
+                    "success": True,
+                    "message": f"Target group '{name}' updated successfully with {len(email_list)} members",
+                }
+            )
+        else:
+            return jsonify({"success": False, "message": "Error updating target group"}), 500
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500

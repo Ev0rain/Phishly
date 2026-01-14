@@ -111,7 +111,7 @@
                         </div>
                         <div class="meta-item">
                             <span class="meta-label">Last used:</span>
-                            <span>{{ template.last_used.strftime('%b %d, %Y') }}</span>
+                            <span>{% if template.last_used %}{{ template.last_used.strftime('%b %d, %Y') }}{% else %}Never{% endif %}</span>
                         </div>
                     </div>
                 </div>

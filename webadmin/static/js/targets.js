@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const createGroupModal = document.getElementById('createGroupModal');
     const importGroupModal = document.getElementById('importGroupModal');
     const viewMembersModal = document.getElementById('viewMembersModal');
+    const editGroupModal = document.getElementById('editGroupModal');
 
     // Button elements
     const createGroupBtn = document.getElementById('createGroupBtn');
@@ -38,8 +39,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const closeCreateModal = document.getElementById('closeCreateModal');
     const closeImportModal = document.getElementById('closeImportModal');
     const closeViewModal = document.getElementById('closeViewModal');
+    const closeEditModal = document.getElementById('closeEditModal');
     const cancelCreateBtn = document.getElementById('cancelCreateBtn');
     const cancelImportBtn = document.getElementById('cancelImportBtn');
+    const cancelEditBtn = document.getElementById('cancelEditBtn');
 
     // File upload
     const csvFileInput = document.getElementById('csvFile');
@@ -90,6 +93,15 @@ document.addEventListener('DOMContentLoaded', function () {
         closeModal(viewMembersModal);
     });
 
+    // Event Listeners - Edit Group Modal
+    closeEditModal?.addEventListener('click', () => {
+        closeModal(editGroupModal);
+    });
+
+    cancelEditBtn?.addEventListener('click', () => {
+        closeModal(editGroupModal);
+    });
+
     // File upload visual feedback
     csvFileInput?.addEventListener('change', function (e) {
         const fileName = e.target.files[0]?.name;
@@ -120,6 +132,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (e.target === viewMembersModal) {
             closeModal(viewMembersModal);
         }
+        if (e.target === editGroupModal) {
+            closeModal(editGroupModal);
+        }
     });
 
     // View group members buttons
@@ -136,8 +151,7 @@ document.addEventListener('DOMContentLoaded', function () {
     editButtons.forEach(btn => {
         btn.addEventListener('click', function () {
             const groupId = this.getAttribute('data-group-id');
-            // In production, redirect to edit page or open edit modal
-            window.location.href = `/targets/${groupId}/edit`;
+            openEditModal(groupId);
         });
     });
 
@@ -259,6 +273,89 @@ function displayMembers(members, container) {
         </div>
     `;
     container.innerHTML = html;
+}
+
+/**
+ * Open edit modal and populate with group data
+ */
+function openEditModal(groupId) {
+    const modal = document.getElementById('editGroupModal');
+    const form = document.getElementById('editGroupForm');
+    const groupIdInput = document.getElementById('editGroupId');
+    const nameInput = document.getElementById('editGroupName');
+    const descriptionInput = document.getElementById('editGroupDescription');
+    const targetsInput = document.getElementById('editGroupTargets');
+
+    // Get group data from table row
+    const row = document.querySelector(`tr[data-group-id="${groupId}"]`);
+    if (!row) {
+        alert('Error: Group not found');
+        return;
+    }
+
+    const groupName = row.querySelector('.group-name strong')?.textContent || '';
+    const groupDescription = row.querySelector('.group-name small')?.textContent || '';
+
+    // Populate basic form fields
+    groupIdInput.value = groupId;
+    nameInput.value = groupName;
+    descriptionInput.value = groupDescription;
+    targetsInput.value = 'Loading members...';
+    targetsInput.disabled = true;
+
+    // Fetch members from API
+    fetch(`/api/targets/${groupId}/members`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.members.length > 0) {
+                // Populate textarea with email addresses (one per line)
+                const emails = data.members.map(member => member.email).join('\n');
+                targetsInput.value = emails;
+                targetsInput.disabled = false;
+            } else {
+                targetsInput.value = '';
+                targetsInput.placeholder = 'No members found. Add email addresses (one per line)';
+                targetsInput.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching members:', error);
+            targetsInput.value = '';
+            targetsInput.placeholder = 'Error loading members. Add email addresses (one per line)';
+            targetsInput.disabled = false;
+        });
+
+    // Handle form submission
+    form.onsubmit = function (e) {
+        e.preventDefault();
+
+        const formData = new FormData();
+        formData.append('name', nameInput.value.trim());
+        formData.append('description', descriptionInput.value.trim());
+        formData.append('targets', targetsInput.value.trim());
+
+        // Submit via AJAX
+        fetch(`/targets/${groupId}/edit`, {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    closeModal(modal);
+                    location.reload(); // Reload to show updated data
+                } else {
+                    alert(`Error: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error updating group:', error);
+                alert('Error updating group. Please try again.');
+            });
+    };
+
+    openModal(modal);
 }
 
 /**

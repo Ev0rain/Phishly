@@ -53,7 +53,10 @@ def init_database():
             admin_count = db.session.query(AdminUser).count()
             print(f"📊 Current admin users: {admin_count}")
         except Exception:
-            print("⚠️  Error counting users " "(tables may not exist yet), creating user anyway...")
+            print(
+                "⚠️  Error counting users (tables may not exist yet), "
+                "creating user anyway..."
+            )
             db.session.rollback()  # Roll back failed transaction
             admin_count = 0
 
