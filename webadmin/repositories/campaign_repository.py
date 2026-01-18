@@ -10,6 +10,7 @@ from db.models import (
     Campaign,
     CampaignTarget,
     CampaignTargetList,
+    EmailJob,
     EmailTemplate,
     TargetList,
     TargetListMember,
@@ -218,10 +219,20 @@ class CampaignRepository(BaseRepository):
                     if first_list.target_list:
                         group_name = first_list.target_list.name
 
-                # Count emails sent (campaign targets)
-                emails_sent = (
+                # Count total targets for this campaign
+                total_targets = (
                     db.session.query(func.count(CampaignTarget.id))
                     .filter(CampaignTarget.campaign_id == c.id)
+                    .scalar()
+                    or 0
+                )
+
+                # Count actually sent emails (from EmailJob with status='sent')
+                emails_sent = (
+                    db.session.query(func.count(EmailJob.id))
+                    .join(CampaignTarget, EmailJob.campaign_target_id == CampaignTarget.id)
+                    .filter(CampaignTarget.campaign_id == c.id)
+                    .filter(EmailJob.status == "sent")
                     .scalar()
                     or 0
                 )
@@ -254,9 +265,13 @@ class CampaignRepository(BaseRepository):
                         "name": c.name,
                         "template_name": template_name,
                         "group_name": group_name,
+                        "total_targets": total_targets,
                         "emails_sent": emails_sent,
                         "status": c.status,
                         "created_at": c.created_at,
+                        "scheduled_launch": c.scheduled_launch,
+                        "min_email_delay": c.min_email_delay,
+                        "max_email_delay": c.max_email_delay,
                         "opened": opened or 0,
                         "clicked": clicked or 0,
                     }
@@ -277,7 +292,7 @@ class CampaignRepository(BaseRepository):
             list: Email templates with id, name, subject
         """
         try:
-            templates = EmailTemplate.query.all()
+            templates = db.session.query(EmailTemplate).all()
 
             return [
                 {
@@ -301,16 +316,14 @@ class CampaignRepository(BaseRepository):
             list: Target groups/lists with id, name, size
         """
         try:
-            # Query target lists with member counts
+            # Query target lists with member counts from TargetListMember table
             target_lists = (
                 db.session.query(
                     TargetList.id,
                     TargetList.name,
-                    func.count(func.distinct(CampaignTarget.target_id)).label("size"),
+                    func.count(TargetListMember.target_id).label("size"),
                 )
-                .outerjoin(CampaignTargetList, TargetList.id == CampaignTargetList.target_list_id)
-                .outerjoin(Campaign, CampaignTargetList.campaign_id == Campaign.id)
-                .outerjoin(CampaignTarget, Campaign.id == CampaignTarget.campaign_id)
+                .outerjoin(TargetListMember, TargetList.id == TargetListMember.target_list_id)
                 .group_by(TargetList.id, TargetList.name)
                 .all()
             )
@@ -368,6 +381,9 @@ class CampaignRepository(BaseRepository):
         start_date=None,
         status="draft",
         created_by_id=None,
+        min_email_delay=30,
+        max_email_delay=180,
+        scheduled_launch=None,
     ):
         """
         Create a new campaign with target lists.
@@ -380,6 +396,9 @@ class CampaignRepository(BaseRepository):
             start_date: Campaign start date (optional)
             status: Campaign status (default: 'draft')
             created_by_id: ID of admin user creating the campaign (optional)
+            min_email_delay: Minimum delay in seconds between emails (default: 30)
+            max_email_delay: Maximum delay in seconds between emails (default: 180)
+            scheduled_launch: DateTime to automatically launch the campaign (optional)
 
         Returns:
             dict: Created campaign details or None if failed
@@ -392,6 +411,9 @@ class CampaignRepository(BaseRepository):
                 email_template_id=email_template_id,
                 created_by_id=created_by_id,
                 status=status,
+                min_email_delay=min_email_delay,
+                max_email_delay=max_email_delay,
+                scheduled_launch=scheduled_launch,
                 start_date=start_date or datetime.utcnow(),
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),

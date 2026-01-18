@@ -103,22 +103,42 @@
                             </td>
                             <td>{{ campaign.template_name }}</td>
                             <td>{{ campaign.group_name }}</td>
-                            <td>{{ campaign.emails_sent }}</td>
+                            <td>
+                                <span class="emails-progress"
+                                      title="{{ campaign.emails_sent }} sent of {{ campaign.total_targets }} total">
+                                    {{ campaign.emails_sent }}/{{ campaign.total_targets }}
+                                </span>
+                            </td>
                             <td>
                                 <span class="status-badge status-{{ campaign.status }}">
                                     {{ campaign.status|capitalize }}
                                 </span>
+                                {% if campaign.status == 'scheduled' and campaign.scheduled_launch %}
+                                    <div class="scheduled-time" title="Scheduled launch">
+                                        📅 {{ campaign.scheduled_launch.strftime('%b %d, %H:%M') }}
+                                    </div>
+                                {% endif %}
                             </td>
                             <td>{{ campaign.created_at.strftime('%b %d, %Y') }}</td>
                             <td>
                                 <div class="action-buttons">
-                                    <button class="btn-icon" title="View Details">
+                                    {% if campaign.status == 'draft' or campaign.status == 'paused' or campaign.status == 'scheduled' %}
+                                        <button class="btn-icon btn-launch" data-campaign-id="{{ campaign.id }}"
+                                                title="Launch Now">
+                                            <span>▶</span>
+                                        </button>
+                                    {% elif campaign.status == 'active' %}
+                                        <button class="btn-icon btn-pause" data-campaign-id="{{ campaign.id }}"
+                                                title="Pause">
+                                            <span>⏸</span>
+                                    </button>
+                                    {% endif %}
+                                    <button class="btn-icon btn-view-details" data-campaign-id="{{ campaign.id }}"
+                                            title="View Details">
                                         <span>◉</span>
                                     </button>
-                                    <button class="btn-icon" title="Edit">
-                                        <span>✎</span>
-                                    </button>
-                                    <button class="btn-icon btn-danger" title="Delete">
+                                    <button class="btn-icon btn-delete" data-campaign-id="{{ campaign.id }}"
+                                            title="Delete">
                                         <span>✕</span>
                                     </button>
                                 </div>
@@ -163,7 +183,7 @@
 
                 <div class="form-group">
                     <label for="targetGroup">Target Group</label>
-                    <select id="targetGroup" name="group_id" required>
+                    <select id="targetGroup" name="group_ids" required>
                         <option value="">Select a group...</option>
                         {% for group in groups %}
                         <option value="{{ group.id }}">{{ group.name }} ({{ group.size }} people)</option>
@@ -171,11 +191,81 @@
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" name="schedule_later" id="scheduleLater">
-                        Schedule for later
-                    </label>
+                <!-- Email Delay Configuration -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Email Sending Options</h4>
+
+                    <div class="form-group">
+                        <label for="delayType">Delay Between Emails</label>
+                        <select id="delayType" name="delay_type">
+                            <option value="random">Randomized delay</option>
+                            <option value="fixed">Fixed delay</option>
+                            <option value="none">No delay (send all at once)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row" id="delaySettings">
+                        <div class="form-group form-group-half">
+                            <label for="minDelay">Min Delay</label>
+                            <div class="input-with-unit">
+                                <input
+                                        type="number"
+                                        id="minDelay"
+                                        name="min_delay"
+                                        value="30"
+                                        min="0"
+                                        max="86400"
+                                >
+                                <select id="minDelayUnit" class="unit-select">
+                                    <option value="1" selected>seconds</option>
+                                    <option value="60">minutes</option>
+                                    <option value="3600">hours</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label for="maxDelay">Max Delay</label>
+                            <div class="input-with-unit">
+                                <input
+                                        type="number"
+                                        id="maxDelay"
+                                        name="max_delay"
+                                        value="180"
+                                        min="0"
+                                        max="86400"
+                                >
+                                <select id="maxDelayUnit" class="unit-select">
+                                    <option value="1" selected>seconds</option>
+                                    <option value="60">minutes</option>
+                                    <option value="3600">hours</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="form-hint" id="delayHint">Emails will be sent with a random delay between 30-180
+                        seconds.</p>
+                </div>
+
+                <!-- Schedule Launch -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Launch Schedule</h4>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="schedule_later" id="scheduleLater">
+                            Schedule campaign launch for a specific time
+                        </label>
+                    </div>
+
+                    <div class="form-group" id="scheduleDateTimeGroup" style="display: none;">
+                        <label for="scheduledLaunch">Launch Date & Time</label>
+                        <input
+                                type="datetime-local"
+                                id="scheduledLaunch"
+                                name="scheduled_launch"
+                        >
+                        <p class="form-hint">Campaign will automatically launch at this time.</p>
+                    </div>
                 </div>
 
                 <div class="modal-footer">
@@ -183,6 +273,25 @@
                     <button type="submit" class="btn-primary">Create Campaign</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Campaign Details Modal -->
+    <div class="modal" id="campaignDetailsModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2 id="detailsModalTitle">Campaign Details</h2>
+                <button class="modal-close" id="closeDetailsModal">&times;</button>
+            </div>
+
+            <div class="modal-body" id="detailsModalBody">
+                <!-- Content loaded dynamically -->
+                <div class="loading-spinner">Loading...</div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" id="closeDetailsBtn">Close</button>
+            </div>
         </div>
     </div>
 

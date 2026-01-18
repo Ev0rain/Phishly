@@ -7,10 +7,11 @@ from flask_login import login_required, current_user
 from repositories.campaign_repository import CampaignRepository
 from database import db
 from db.models import Campaign, CampaignTarget, EmailJob, Target
-from datetime import datetime
+from datetime import datetime, timedelta
 from celery import Celery
 import os
 import logging
+import random
 
 campaigns_bp = Blueprint("campaigns", __name__)
 
@@ -53,6 +54,15 @@ def create():
     template_id = request.form.get("template_id")
     group_ids = request.form.getlist("group_ids")  # Support multiple groups
 
+    # Delay settings
+    delay_type = request.form.get("delay_type", "random")
+    min_delay = request.form.get("min_delay", "30")
+    max_delay = request.form.get("max_delay", "180")
+
+    # Schedule settings
+    schedule_later = request.form.get("schedule_later") == "on"
+    scheduled_launch = request.form.get("scheduled_launch")
+
     # Validate required fields
     if not campaign_name or not template_id:
         return (
@@ -70,21 +80,47 @@ def create():
     if not group_ids:
         return jsonify({"success": False, "message": "At least one target group is required"}), 400
 
+    # Process delay settings
+    try:
+        if delay_type == "none":
+            min_delay_seconds = 0
+            max_delay_seconds = 0
+        elif delay_type == "fixed":
+            min_delay_seconds = int(min_delay)
+            max_delay_seconds = int(min_delay)  # Same value for fixed
+        else:  # random
+            min_delay_seconds = int(min_delay)
+            max_delay_seconds = int(max_delay)
+    except ValueError:
+        return jsonify({"success": False, "message": "Invalid delay values"}), 400
+
+    # Process scheduled launch
+    scheduled_launch_dt = None
+    if schedule_later and scheduled_launch:
+        try:
+            scheduled_launch_dt = datetime.fromisoformat(scheduled_launch)
+        except ValueError:
+            return jsonify({"success": False, "message": "Invalid scheduled launch date/time"}), 400
+
     # Create campaign in database
     campaign = campaign_repo.create_campaign(
         name=campaign_name,
         description=description,
         email_template_id=template_id,
         target_list_ids=group_ids,
-        status="draft",
+        status="scheduled" if scheduled_launch_dt else "draft",
         created_by_id=current_user.id if hasattr(current_user, "id") else None,
+        min_email_delay=min_delay_seconds,
+        max_email_delay=max_delay_seconds,
+        scheduled_launch=scheduled_launch_dt,
     )
 
     if campaign:
+        status_msg = "scheduled" if scheduled_launch_dt else "created"
         return jsonify(
             {
                 "success": True,
-                "message": f"Campaign '{campaign_name}' created successfully",
+                "message": f"Campaign '{campaign_name}' {status_msg} successfully",
                 "campaign": campaign,
             }
         )
@@ -119,18 +155,39 @@ def launch_campaign(campaign_id):
 
         # Update campaign status
         campaign.status = "active"
-        campaign.launch_date = datetime.utcnow()
+        campaign.start_date = datetime.utcnow()
+
+        # Get delay settings from campaign
+        min_delay = campaign.min_email_delay or 0
+        max_delay = campaign.max_email_delay or 0
 
         # Create email jobs and trigger Celery tasks
         jobs_created = 0
         tasks_queued = 0
+        cumulative_delay = 0  # Track total delay for sequential scheduling
 
-        for campaign_target in campaign_targets:
+        for idx, campaign_target in enumerate(campaign_targets):
+            # Calculate delay for this email
+            if min_delay == 0 and max_delay == 0:
+                # No delay - send immediately
+                delay_seconds = 0
+            elif min_delay == max_delay:
+                # Fixed delay
+                delay_seconds = min_delay
+            else:
+                # Random delay between min and max
+                delay_seconds = random.randint(min_delay, max_delay)
+
+            # Calculate scheduled time (cumulative for sequential sending)
+            scheduled_time = datetime.utcnow() + timedelta(seconds=cumulative_delay)
+            cumulative_delay += delay_seconds
+
             # Create email job record
             email_job = EmailJob(
                 campaign_target_id=campaign_target.id,
                 status="queued",
-                scheduled_time=datetime.utcnow(),
+                scheduled_at=scheduled_time,
+                delay_seconds=delay_seconds,
             )
             db.session.add(email_job)
             db.session.flush()  # Get the email_job.id
@@ -142,21 +199,20 @@ def launch_campaign(campaign_id):
                 target = db.session.get(Target, campaign_target.target_id)
 
                 if target:
-                    # Queue the task asynchronously
+                    # Queue the task asynchronously with countdown for delay
                     task = celery_app.send_task(
                         "tasks.send_phishing_email",
                         args=[campaign_id, target.id],
                         kwargs={},
                         queue="default",
+                        countdown=cumulative_delay - delay_seconds,  # Delay before executing
                     )
 
-                    # Update email job with Celery task ID
-                    email_job.celery_task_id = task.id
                     tasks_queued += 1
 
                     log_msg = (
                         f"Queued Celery task {task.id} for campaign "
-                        f"{campaign_id}, target {target.id}"
+                        f"{campaign_id}, target {target.id} (delay: {cumulative_delay - delay_seconds}s)"
                     )
                     logger.info(log_msg)
                 else:
@@ -250,3 +306,75 @@ def delete_campaign(campaign_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "message": f"Error deleting campaign: {str(e)}"}), 500
+
+
+@campaigns_bp.route("/campaigns/<int:campaign_id>/details", methods=["GET"])
+@login_required
+def get_campaign_details(campaign_id):
+    """
+    Get detailed campaign information including template and targets with email status
+    """
+    try:
+        campaign = db.session.get(Campaign, campaign_id)
+
+        if not campaign:
+            return jsonify({"success": False, "message": "Campaign not found"}), 404
+
+        # Get template info
+        template_info = None
+        if campaign.email_template:
+            template_info = {
+                "id": campaign.email_template.id,
+                "name": campaign.email_template.name,
+                "subject": campaign.email_template.subject,
+                "from_name": campaign.email_template.from_name,
+                "from_email": campaign.email_template.from_email,
+            }
+
+        # Get targets with their email status
+        targets_list = []
+        for ct in campaign.campaign_targets:
+            target = ct.target
+            if target:
+                # Check email job status
+                email_status = "pending"
+                sent_at = None
+                if ct.email_jobs:
+                    # Get the latest email job
+                    latest_job = max(ct.email_jobs, key=lambda j: j.created_at)
+                    email_status = latest_job.status
+                    sent_at = latest_job.sent_at.isoformat() if latest_job.sent_at else None
+
+                targets_list.append({
+                    "id": target.id,
+                    "email": target.email,
+                    "first_name": target.first_name,
+                    "last_name": target.last_name,
+                    "position": target.position,
+                    "email_status": email_status,
+                    "sent_at": sent_at,
+                    "target_status": ct.status,
+                })
+
+        return jsonify({
+            "success": True,
+            "campaign": {
+                "id": campaign.id,
+                "name": campaign.name,
+                "description": campaign.description,
+                "status": campaign.status,
+                "created_at": campaign.created_at.isoformat() if campaign.created_at else None,
+                "start_date": campaign.start_date.isoformat() if campaign.start_date else None,
+                "scheduled_launch": campaign.scheduled_launch.isoformat() if campaign.scheduled_launch else None,
+                "min_email_delay": campaign.min_email_delay,
+                "max_email_delay": campaign.max_email_delay,
+            },
+            "template": template_info,
+            "targets": targets_list,
+            "total_targets": len(targets_list),
+            "emails_sent": sum(1 for t in targets_list if t["email_status"] == "sent"),
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting campaign details: {e}", exc_info=True)
+        return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500

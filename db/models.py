@@ -153,7 +153,9 @@ class Campaign(Base):
     status = Column(
         String(50), default="draft", nullable=False
     )  # draft, scheduled, active, paused, completed
+    min_email_delay = Column(Integer, default=30)  # Minimum delay in seconds between emails
     max_email_delay = Column(Integer, default=180)  # Maximum delay in seconds between emails
+    scheduled_launch = Column(DateTime)  # When to automatically launch the campaign
     start_date = Column(DateTime)
     end_date = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
