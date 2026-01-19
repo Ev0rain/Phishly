@@ -30,33 +30,84 @@ def index():
 def create():
     """Create a new target group manually"""
     if request.method == "POST":
+        import json
+
         # Handle form submission
         name = request.form.get("name", "").strip()
         description = request.form.get("description", "").strip()
 
-        # Get targets from textarea (one email per line)
-        targets_text = request.form.get("targets", "").strip()
-        email_list = [email.strip() for email in targets_text.split("\n") if email.strip()]
+        # Get targets from JSON (spreadsheet data) or fallback to text area
+        targets_json = request.form.get("targets_json", "").strip()
+
+        if targets_json:
+            # Parse JSON targets from spreadsheet
+            try:
+                targets_data = json.loads(targets_json)
+                targets_list = []
+                errors = []
+
+                for idx, target in enumerate(targets_data, start=1):
+                    email = target.get("email", "").strip()
+                    first_name = target.get("first_name", "").strip()
+                    last_name = target.get("last_name", "").strip()
+
+                    # Validate mandatory fields
+                    if not email:
+                        errors.append(f"Row {idx}: Email is required")
+                        continue
+                    if not first_name:
+                        errors.append(f"Row {idx}: First name is required")
+                        continue
+                    if not last_name:
+                        errors.append(f"Row {idx}: Last name is required")
+                        continue
+
+                    # Basic email validation
+                    if "@" not in email or "." not in email.split("@")[-1]:
+                        errors.append(f"Row {idx}: Invalid email format - {email}")
+                        continue
+
+                    targets_list.append({
+                        "email": email,
+                        "salutation": target.get("salutation", "").strip(),
+                        "first_name": first_name,
+                        "last_name": last_name,
+                        "position": target.get("position", "").strip(),
+                        "department": target.get("department", "").strip(),
+                    })
+
+                if errors:
+                    for error in errors:
+                        flash(error, "warning")
+
+            except json.JSONDecodeError as e:
+                flash(f"Error parsing targets data: {str(e)}", "error")
+                return redirect(url_for("targets.index") + "#create")
+        else:
+            # Fallback: Get targets from textarea (one email per line)
+            targets_text = request.form.get("targets", "").strip()
+            email_list = [email.strip() for email in targets_text.split("\n") if email.strip()]
+
+            # Convert email strings to target dictionaries
+            targets_list = [
+                {
+                    "email": email,
+                    "salutation": "",
+                    "first_name": "",
+                    "last_name": "",
+                    "position": "",
+                    "department": "",
+                }
+                for email in email_list
+            ]
 
         if not name:
             flash("Group name is required", "error")
             return redirect(url_for("targets.index") + "#create")
 
-        if not email_list:
-            flash("At least one target email is required", "error")
+        if not targets_list:
+            flash("At least one valid target is required", "error")
             return redirect(url_for("targets.index") + "#create")
-
-        # Convert email strings to target dictionaries (required format for repository)
-        targets_list = [
-            {
-                "email": email,
-                "first_name": "",
-                "last_name": "",
-                "position": "",
-                "department": "",
-            }
-            for email in email_list
-        ]
 
         # Create the group
         result = targets_repo.create_group(

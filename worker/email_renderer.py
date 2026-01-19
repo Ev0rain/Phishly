@@ -5,14 +5,22 @@ This module handles Jinja2 template rendering for phishing emails,
 including variable substitution, tracking link injection, and HTML/text formatting.
 """
 
+import base64
+import hashlib
+import hmac
 import logging
+import os
 import secrets
+from datetime import datetime, timedelta
 from typing import Dict, Tuple
 from urllib.parse import urlencode
 
 from jinja2 import Template, TemplateSyntaxError, UndefinedError
 
 logger = logging.getLogger(__name__)
+
+# Secret key for HMAC-based tracking tokens
+TRACKING_SECRET_KEY = os.getenv("TRACKING_SECRET_KEY", "default-tracking-secret-key")
 
 
 class EmailRenderer:
@@ -57,13 +65,18 @@ class EmailRenderer:
         phishing_link_url = self._build_phishing_link_url(landing_page_url, tracking_token)
         unsubscribe_url = self._build_unsubscribe_url(tracking_token)
 
-        # Add tracking URLs to variables
+        # Add tracking URLs and auto-generated variables
         render_vars = {
             **variables,
+            # Tracking URLs
             "tracking_pixel_url": tracking_pixel_url,
             "phishing_link": phishing_link_url,
             "landing_page_url": phishing_link_url,  # Alias for compatibility
             "unsubscribe_url": unsubscribe_url,
+            # Auto-generated variables (for shipping templates, etc.)
+            "tracking_number": self.generate_tracking_number(),
+            "delivery_date": self.generate_delivery_date(),
+            "year": str(datetime.now().year),
         }
 
         # Render HTML version
@@ -189,14 +202,58 @@ class EmailRenderer:
             logger.error(f"Subject template syntax error: {e}")
             raise
 
-    def generate_tracking_token(self) -> str:
+    def generate_tracking_token(
+        self, campaign_id: int = None, target_id: int = None
+    ) -> str:
         """
         Generate a unique tracking token.
 
+        If campaign_id and target_id are provided, generates a deterministic
+        HMAC-based token. Otherwise, generates a random token.
+
+        Args:
+            campaign_id: Campaign ID (optional)
+            target_id: Target ID (optional)
+
         Returns:
-            Random tracking token (32 characters hex)
+            Tracking token (32 characters, URL-safe base64)
         """
-        return secrets.token_hex(16)
+        if campaign_id is not None and target_id is not None:
+            # Deterministic HMAC-based token for campaign-target pair
+            message = f"c{campaign_id}t{target_id}".encode()
+            signature = hmac.new(
+                TRACKING_SECRET_KEY.encode(), message, hashlib.sha256
+            ).digest()
+            # URL-safe base64, truncated to 32 chars
+            token = base64.urlsafe_b64encode(signature).decode().rstrip("=")[:32]
+            return token
+        else:
+            # Fallback to random token
+            return secrets.token_urlsafe(24)[:32]
+
+    def generate_tracking_number(self) -> str:
+        """
+        Generate a realistic-looking tracking number (for shipping templates).
+
+        Returns:
+            UPS-style tracking number
+        """
+        return f"1Z{secrets.token_hex(4).upper()}{secrets.randbelow(10000000000):010d}"
+
+    def generate_delivery_date(self, days_ahead: int = None) -> str:
+        """
+        Generate a delivery date (for shipping templates).
+
+        Args:
+            days_ahead: Specific number of days ahead (default: random 3-5)
+
+        Returns:
+            Formatted date string
+        """
+        if days_ahead is None:
+            days_ahead = secrets.randbelow(3) + 3
+        date = datetime.now() + timedelta(days=days_ahead)
+        return date.strftime("%A, %B %d, %Y")
 
 
 def validate_template(template_str: str) -> Tuple[bool, str]:
@@ -224,16 +281,23 @@ def get_available_variables() -> Dict[str, str]:
         Dictionary mapping variable names to descriptions
     """
     return {
-        # Target variables
+        # Core target variables
+        "salutation": "Target's salutation (Mr., Ms., Dr., etc.)",
         "first_name": "Target's first name",
         "last_name": "Target's last name",
         "email": "Target's email address",
-        "position": "Target's job position",
+        "position": "Target's job position/title",
+        "department": "Target's department name",
         # Campaign variables
         "campaign_name": "Campaign name",
         # Sender variables
         "sender_name": "Sender's display name",
         "sender_email": "Sender's email address",
+        # Utility variables
+        "year": "Current year (for copyright footers)",
+        # Auto-generated variables (for shipping templates)
+        "tracking_number": "Auto-generated package tracking number",
+        "delivery_date": "Auto-generated delivery date (3-5 days ahead)",
         # Tracking variables (automatically injected)
         "tracking_pixel_url": "URL to tracking pixel (auto-injected in HTML)",
         "phishing_link": "Phishing link URL with tracking",

@@ -13,6 +13,12 @@ import os
 import logging
 import random
 
+from utils.cache_manager import (
+    cache_landing_page,
+    clear_campaign_cache,
+    generate_task_id,
+)
+
 campaigns_bp = Blueprint("campaigns", __name__)
 
 # Initialize repository (now using real database)
@@ -135,10 +141,11 @@ def create():
 @login_required
 def launch_campaign(campaign_id):
     """
-    Launch campaign - change status to active, queue emails, and trigger Celery tasks
+    Launch campaign - change status to active, cache landing page, queue emails,
+    and trigger Celery tasks with custom task IDs
     """
     try:
-        # Get campaign
+        # Get campaign with relationships
         campaign = db.session.get(Campaign, campaign_id)
 
         if not campaign:
@@ -152,6 +159,17 @@ def launch_campaign(campaign_id):
 
         if not campaign_targets:
             return jsonify({"success": False, "message": "Campaign has no targets"}), 400
+
+        # Cache the landing page for fast serving
+        landing_page = campaign.landing_page
+        if landing_page:
+            cache_result = cache_landing_page(campaign_id, landing_page)
+            if cache_result:
+                logger.info(f"Cached landing page for campaign {campaign_id}")
+            else:
+                logger.warning(f"Failed to cache landing page for campaign {campaign_id}")
+        else:
+            logger.warning(f"Campaign {campaign_id} has no landing page to cache")
 
         # Update campaign status
         campaign.status = "active"
@@ -199,11 +217,15 @@ def launch_campaign(campaign_id):
                 target = db.session.get(Target, campaign_target.target_id)
 
                 if target:
-                    # Queue the task asynchronously with countdown for delay
+                    # Generate campaign-specific task ID
+                    task_id = generate_task_id(campaign_id, target.id)
+
+                    # Queue the task asynchronously with custom task_id and countdown
                     task = celery_app.send_task(
                         "tasks.send_phishing_email",
                         args=[campaign_id, target.id],
                         kwargs={},
+                        task_id=task_id,
                         queue="default",
                         countdown=cumulative_delay - delay_seconds,  # Delay before executing
                     )
@@ -211,7 +233,7 @@ def launch_campaign(campaign_id):
                     tasks_queued += 1
 
                     log_msg = (
-                        f"Queued Celery task {task.id} for campaign "
+                        f"Queued Celery task {task_id} for campaign "
                         f"{campaign_id}, target {target.id} (delay: {cumulative_delay - delay_seconds}s)"
                     )
                     logger.info(log_msg)
@@ -296,6 +318,10 @@ def delete_campaign(campaign_id):
             )
 
         campaign_name = campaign.name
+
+        # Clear cached landing pages
+        clear_campaign_cache(campaign_id)
+
         db.session.delete(campaign)
         db.session.commit()
 

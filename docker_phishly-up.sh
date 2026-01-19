@@ -72,6 +72,13 @@ else
     echo -e "${RED}❌ Celery Worker: Not running${NC}"
 fi
 
+# Check Phishing Server
+if docker ps | grep phishly-phishing | grep -q Up; then
+    echo -e "${GREEN}✅ Phishing Server: Running${NC}"
+else
+    echo -e "${RED}❌ Phishing Server: Not running${NC}"
+fi
+
 echo ""
 
 # Summary

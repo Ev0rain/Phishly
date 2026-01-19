@@ -6,7 +6,7 @@ Metadata stored in database, HTML files stored on disk
 
 from repositories.base_repository import BaseRepository
 from database import db
-from db.models import EmailTemplate
+from db.models import EmailTemplate, LandingPage
 from datetime import datetime
 import os
 import logging
@@ -32,6 +32,17 @@ class TemplatesRepository(BaseRepository):
 
             result = []
             for template in templates:
+                # Get default landing page info if set
+                landing_page_info = None
+                if template.default_landing_page_id:
+                    landing_page = template.default_landing_page
+                    if landing_page:
+                        landing_page_info = {
+                            "id": landing_page.id,
+                            "name": landing_page.name,
+                            "url_path": landing_page.url_path,
+                        }
+
                 result.append(
                     {
                         "id": template.id,
@@ -40,6 +51,8 @@ class TemplatesRepository(BaseRepository):
                         "from_email": template.from_email,
                         "from_name": template.from_name,
                         "created_at": template.created_at,
+                        "default_landing_page_id": template.default_landing_page_id,
+                        "default_landing_page": landing_page_info,
                         # For compatibility with existing UI
                         "filename": f"{template.id}.html",
                         "tags": [],  # TODO: Add tags support if needed
@@ -65,6 +78,17 @@ class TemplatesRepository(BaseRepository):
             if not template:
                 return None
 
+            # Get default landing page info if set
+            landing_page_info = None
+            if template.default_landing_page_id:
+                landing_page = template.default_landing_page
+                if landing_page:
+                    landing_page_info = {
+                        "id": landing_page.id,
+                        "name": landing_page.name,
+                        "url_path": landing_page.url_path,
+                    }
+
             return {
                 "id": template.id,
                 "name": template.name,
@@ -72,6 +96,8 @@ class TemplatesRepository(BaseRepository):
                 "from_email": template.from_email,
                 "from_name": template.from_name,
                 "created_at": template.created_at,
+                "default_landing_page_id": template.default_landing_page_id,
+                "default_landing_page": landing_page_info,
                 "filename": f"{template.id}.html",
                 "tags": [],
                 "last_used": None,
@@ -183,7 +209,15 @@ class TemplatesRepository(BaseRepository):
 """
 
     @staticmethod
-    def save_template(name, subject, from_email, from_name, html_content, created_by_id=None):
+    def save_template(
+        name,
+        subject,
+        from_email,
+        from_name,
+        html_content,
+        created_by_id=None,
+        default_landing_page_id=None,
+    ):
         """
         Save a new template (metadata to DB, HTML to disk)
 
@@ -194,6 +228,7 @@ class TemplatesRepository(BaseRepository):
             from_name: Sender display name
             html_content: HTML content of email
             created_by_id: ID of admin user creating the template (optional)
+            default_landing_page_id: ID of default landing page (optional)
 
         Returns:
             tuple: (success: bool, message: str, template_id: int or None)
@@ -207,6 +242,7 @@ class TemplatesRepository(BaseRepository):
                 from_name=from_name,
                 body_html="",  # Empty placeholder, actual HTML stored in file
                 created_by_id=created_by_id,
+                default_landing_page_id=default_landing_page_id,
                 created_at=datetime.utcnow(),
             )
             db.session.add(new_template)
@@ -231,6 +267,29 @@ class TemplatesRepository(BaseRepository):
             db.session.rollback()
             logger.error(f"Error saving template: {e}")
             return False, f"Error saving template: {str(e)}", None
+
+    @staticmethod
+    def get_all_landing_pages():
+        """Return all landing pages for template selection dropdown"""
+        try:
+            landing_pages = (
+                db.session.query(LandingPage)
+                .order_by(LandingPage.name.asc())
+                .all()
+            )
+
+            return [
+                {
+                    "id": lp.id,
+                    "name": lp.name,
+                    "url_path": lp.url_path,
+                }
+                for lp in landing_pages
+            ]
+
+        except Exception as e:
+            logger.error(f"Error getting landing pages: {e}")
+            return []
 
     @staticmethod
     def get_available_tags():

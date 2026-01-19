@@ -31,14 +31,23 @@ from db.models import Base
 # target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
 
-# 1. read connection URL from env
+# 1. read connection URL from env (or construct from individual vars)
 connection_url = os.getenv("DATABASE_URL")
 if not connection_url:
-    raise RuntimeError("DATABASE_URL environment variable not set")
+    # Construct from individual components
+    pg_user = os.getenv("POSTGRES_USER", "postgres")
+    pg_password = os.getenv("POSTGRES_PASSWORD", "")
+    pg_host = os.getenv("POSTGRES_HOST", "localhost")
+    pg_port = os.getenv("POSTGRES_PORT", "5432")
+    pg_db = os.getenv("POSTGRES_DB", "phishly")
+    # URL-encode password in case it has special characters
+    from urllib.parse import quote_plus
+    connection_url = f"postgresql://{pg_user}:{quote_plus(pg_password)}@{pg_host}:{pg_port}/{pg_db}"
 
 # 2. override the ini setting
+# Escape % for configparser interpolation
 config = context.config  # Config object containing the .ini values
-config.set_main_option("sqlalchemy.url", connection_url)
+config.set_main_option("sqlalchemy.url", connection_url.replace("%", "%%"))
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

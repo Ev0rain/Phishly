@@ -114,6 +114,13 @@ else
     echo -e "${YELLOW}⚠️  WebAdmin may not be ready yet. Wait a moment and check: curl http://localhost:8006/health${NC}"
 fi
 
+# Check phishing server
+if docker ps | grep phishly-phishing | grep -q Up; then
+    echo -e "${GREEN}✅ Phishing Server is running${NC}"
+else
+    echo -e "${YELLOW}⚠️  Phishing Server may not be running. Check with: docker-compose ps${NC}"
+fi
+
 # Success message
 echo ""
 echo "🎉 ============================================"

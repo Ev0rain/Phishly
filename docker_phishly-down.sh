@@ -34,6 +34,9 @@ docker-compose stop webadmin
 echo "   → Stopping Celery Worker..."
 docker-compose stop celery-worker
 
+echo "   → Stopping Phishing Server..."
+docker-compose stop phishing-server
+
 echo "   → Stopping Reverse Proxy..."
 docker-compose stop caddy
 

@@ -123,8 +123,12 @@ def send_phishing_email(self, campaign_id: int, target_id: int) -> dict:
             if not email_template:
                 raise ValueError(f"No email template found for campaign {campaign_id}")
 
-            # Get landing page (use campaign-specific or default)
-            landing_page = campaign_target.landing_page or campaign.landing_page
+            # Get landing page (cascade: campaign_target -> campaign -> template default)
+            landing_page = (
+                getattr(campaign_target, "landing_page", None)
+                or campaign.landing_page
+                or getattr(email_template, "default_landing_page", None)
+            )
             if not landing_page:
                 raise ValueError(f"No landing page found for campaign {campaign_id}")
 
@@ -144,7 +148,10 @@ def send_phishing_email(self, campaign_id: int, target_id: int) -> dict:
             # Get tracking token (or generate if not exists)
             tracking_token = campaign_target.tracking_token
             if not tracking_token:
-                tracking_token = email_renderer.generate_tracking_token()
+                # Generate deterministic HMAC-based token for this campaign-target pair
+                tracking_token = email_renderer.generate_tracking_token(
+                    campaign_id=campaign_id, target_id=target_id
+                )
                 campaign_target.tracking_token = tracking_token
                 session.flush()
 
@@ -157,7 +164,7 @@ def send_phishing_email(self, campaign_id: int, target_id: int) -> dict:
                 text_template=email_template.text_content,
                 variables=template_vars,
                 tracking_token=tracking_token,
-                landing_page_url=landing_page.url,
+                landing_page_url=landing_page.url_path,
             )
 
             # Render subject line
@@ -183,6 +190,9 @@ def send_phishing_email(self, campaign_id: int, target_id: int) -> dict:
                 "X-Campaign-ID": str(campaign_id),
                 "X-Target-ID": str(target_id),
                 "X-Tracking-Token": tracking_token,
+                "X-Template-ID": str(email_template.id),
+                "X-Template-Name": (email_template.name or "")[:50],
+                "X-Phishly-Version": "1.0",
             },
         )
 

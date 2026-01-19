@@ -13,6 +13,10 @@
 # Public phishing landing pages (port 443)
 # Note: In production, add proper SSL certificates
 :443 {
-    respond "Phishing landing page service (not configured in development)" 501
+    reverse_proxy phishly-phishing:8000 {
+                                            header_up X-Real-IP {remote_host}
+                                            header_up X-Forwarded-For {remote_host}
+                                            header_up X-Forwarded-Proto {scheme}
+                                        }
 }
 

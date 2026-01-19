@@ -95,6 +95,8 @@ services:
       - ./webadmin:/app
       # Mount shared db models directory
       - ./db:/app/db
+      # Shared volume for landing page cache (write access)
+      - landing_page_cache:/app/shared_cache
       # Exclude Python cache
       - /app/__pycache__
       - /app/.pytest_cache
@@ -150,6 +152,9 @@ services:
       # Phishing Domain Configuration
       PHISHING_DOMAIN: ${PHISHING_DOMAIN:-phishing.example.com}
 
+      # Tracking Configuration
+      TRACKING_SECRET_KEY: ${TRACKING_SECRET_KEY:-default-tracking-secret}
+
     networks:
       - net_data
 
@@ -160,6 +165,52 @@ services:
         condition: service_healthy
 
     command: celery -A tasks worker --loglevel=info
+
+  # ============================================
+  # Phishing Server Service (Public Landing Pages)
+  # ============================================
+  phishing-server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: phishly-phishing
+    restart: unless-stopped
+
+    expose:
+      - "8000"
+
+    environment:
+      # PostgreSQL Configuration
+      POSTGRES_HOST: postgres-db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # Phishing Domain Configuration
+      PHISHING_DOMAIN: ${PHISHING_DOMAIN:-phishing.example.com}
+
+      # Cache directory (inside container)
+      CACHE_DIR: /app/cache
+
+    volumes:
+      # Shared volume for landing page cache
+      - landing_page_cache:/app/cache:ro
+
+    networks:
+      - net_public
+      - net_data
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # ============================================
   # Caddy Reverse Proxy Service
@@ -198,6 +249,7 @@ services:
 
     depends_on:
       - webadmin
+      - phishing-server
 
 # ============================================
 # Network Definitions
@@ -233,3 +285,5 @@ volumes:
     name: phishly_caddy_data
   caddy_config:
     name: phishly_caddy_config
+  landing_page_cache:
+    name: phishly_landing_page_cache

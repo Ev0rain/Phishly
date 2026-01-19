@@ -17,11 +17,13 @@ def index():
     """Display all email templates"""
     templates = templates_repo.get_all_templates()
     available_tags = templates_repo.get_available_tags()
+    landing_pages = templates_repo.get_all_landing_pages()
 
     return render_template(
         "email_templates.html",
         templates=templates,
         available_tags=available_tags,
+        landing_pages=landing_pages,
     )
 
 
@@ -42,6 +44,31 @@ def preview_template(template_id):
             "name": template["name"],
             "subject": template["subject"],
             "html": html_content,
+        }
+    )
+
+
+@templates_bp.route("/templates/<int:template_id>/details")
+@login_required
+def get_template_details(template_id):
+    """Return template details including default landing page for campaign creation"""
+    template = templates_repo.get_template_by_id(template_id)
+
+    if not template:
+        return jsonify({"success": False, "error": "Template not found"}), 404
+
+    return jsonify(
+        {
+            "success": True,
+            "template": {
+                "id": template["id"],
+                "name": template["name"],
+                "subject": template["subject"],
+                "from_email": template["from_email"],
+                "from_name": template["from_name"],
+                "default_landing_page_id": template.get("default_landing_page_id"),
+                "default_landing_page": template.get("default_landing_page"),
+            },
         }
     )
 
@@ -94,6 +121,14 @@ def import_template():
     from_email = request.form.get("from_email", "noreply@company.com")
     from_name = request.form.get("from_name", "Company Name")
 
+    # Get default landing page ID (optional)
+    default_landing_page_id = request.form.get("default_landing_page_id")
+    if default_landing_page_id:
+        try:
+            default_landing_page_id = int(default_landing_page_id)
+        except ValueError:
+            default_landing_page_id = None
+
     # Save template (metadata to DB, HTML to disk)
     success, message, template_id = templates_repo.save_template(
         name=name,
@@ -102,6 +137,7 @@ def import_template():
         from_name=from_name,
         html_content=html_content,
         created_by_id=current_user.id if current_user and hasattr(current_user, "id") else None,
+        default_landing_page_id=default_landing_page_id,
     )
 
     if success:

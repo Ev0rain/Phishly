@@ -113,6 +113,7 @@ class TargetsRepository(BaseRepository):
                 db.session.query(
                     Target.id,
                     Target.email,
+                    Target.salutation,
                     Target.first_name,
                     Target.last_name,
                     Target.position,
@@ -130,6 +131,7 @@ class TargetsRepository(BaseRepository):
                     {
                         "id": member.id,
                         "email": member.email,
+                        "salutation": member.salutation or "",
                         "first_name": member.first_name or "",
                         "last_name": member.last_name or "",
                         "position": member.position or "",
@@ -232,6 +234,7 @@ class TargetsRepository(BaseRepository):
                     # Create new target
                     new_target = Target(
                         email=target_data["email"],
+                        salutation=target_data.get("salutation", ""),
                         first_name=target_data.get("first_name", ""),
                         last_name=target_data.get("last_name", ""),
                         position=target_data.get("position", ""),
@@ -269,7 +272,8 @@ class TargetsRepository(BaseRepository):
     def parse_csv_targets(csv_content):
         """
         Parse CSV content into target list
-        Expected CSV format: email,first_name,last_name,position,department
+        Expected CSV format: email,salutation,first_name,last_name,position,department
+        Note: salutation is optional
 
         Args:
             csv_content: String content of CSV file
@@ -282,6 +286,9 @@ class TargetsRepository(BaseRepository):
 
         targets = []
         errors = []
+
+        # Valid salutations
+        valid_salutations = {"Mr.", "Ms.", "Mrs.", "Dr.", "Prof.", "Mx.", ""}
 
         try:
             reader = csv.DictReader(StringIO(csv_content))
@@ -298,8 +305,23 @@ class TargetsRepository(BaseRepository):
                     errors.append(f"Row {row_num}: Invalid email format - {email}")
                     continue
 
+                # Get and validate salutation (optional field)
+                salutation = row.get("salutation", "").strip()
+                if salutation and salutation not in valid_salutations:
+                    # Try to normalize common variations
+                    salutation_map = {
+                        "mr": "Mr.", "mr.": "Mr.",
+                        "ms": "Ms.", "ms.": "Ms.",
+                        "mrs": "Mrs.", "mrs.": "Mrs.",
+                        "dr": "Dr.", "dr.": "Dr.",
+                        "prof": "Prof.", "prof.": "Prof.",
+                        "mx": "Mx.", "mx.": "Mx.",
+                    }
+                    salutation = salutation_map.get(salutation.lower(), salutation)
+
                 target = {
                     "email": email,
+                    "salutation": salutation,
                     "first_name": row.get("first_name", "").strip(),
                     "last_name": row.get("last_name", "").strip(),
                     "position": row.get("position", "").strip(),
@@ -452,6 +474,7 @@ class TargetsRepository(BaseRepository):
                     # Create new target
                     new_target = Target(
                         email=target_data["email"],
+                        salutation=target_data.get("salutation", ""),
                         first_name=target_data.get("first_name", ""),
                         last_name=target_data.get("last_name", ""),
                         position=target_data.get("position", ""),

@@ -62,6 +62,7 @@ class Target(Base):
     id = Column(BigInteger, primary_key=True)
     department_id = Column(BigInteger, ForeignKey("departments.id"))
     email = Column(String(255))
+    salutation = Column(String(20))  # Mr., Ms., Mrs., Dr., Prof., Mx.
     first_name = Column(String(100))
     last_name = Column(String(100))
     position = Column(String(100))
@@ -102,6 +103,7 @@ class EmailTemplate(Base):
 
     id = Column(BigInteger, primary_key=True)
     created_by_id = Column(BigInteger, ForeignKey("admin_users.id"))
+    default_landing_page_id = Column(BigInteger, ForeignKey("landing_pages.id"))
     name = Column(String(255))
     subject = Column(String(500))
     html_content = Column(Text)
@@ -110,6 +112,7 @@ class EmailTemplate(Base):
     sender_email = Column(String(255))
 
     created_by = relationship("AdminUser")
+    default_landing_page = relationship("LandingPage")
 
 
 class LandingPage(Base):
@@ -120,8 +123,13 @@ class LandingPage(Base):
     id = Column(BigInteger, primary_key=True)
     created_by_id = Column(BigInteger, ForeignKey("admin_users.id"))
     name = Column(String(255))
-    url = Column(String(500))
+    url_path = Column(String(255))  # e.g., /login-portal
     html_content = Column(Text)
+    css_content = Column(Text)
+    js_content = Column(Text)
+    redirect_url = Column(String(500))  # Where to redirect after submission
+    capture_credentials = Column(Integer, default=0)  # Boolean as int
+    capture_form_data = Column(Integer, default=1)  # Boolean as int
 
     created_by = relationship("AdminUser")
 
@@ -498,18 +506,29 @@ def get_email_template_variables(
     Returns:
         Dictionary of template variables
     """
+    from datetime import datetime
+
+    # Get department name if available
+    department_name = ""
+    if target.department:
+        department_name = target.department.name if hasattr(target.department, "name") else ""
+
     return {
-        # Target information
+        # Core target variables
+        "salutation": target.salutation or "",
         "first_name": target.first_name or "",
         "last_name": target.last_name or "",
         "email": target.email or "",
         "position": target.position or "",
+        "department": department_name,
         # Campaign information
         "campaign_name": campaign.name or "",
         # Sender information
         "sender_name": template.sender_name or "",
         "sender_email": template.sender_email or "",
-        # Tracking (to be set by email sender)
+        # Utility variables
+        "year": str(datetime.now().year),
+        # Tracking (to be set by email renderer)
         "tracking_url": "",
         "landing_page_url": "",
         "unsubscribe_url": "",

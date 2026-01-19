@@ -53,6 +53,7 @@ class Target(Base):
     id = Column(BigInteger, primary_key=True)
     department_id = Column(BigInteger, ForeignKey("departments.id"))
     email = Column(String(255), nullable=False, unique=True)
+    salutation = Column(String(20))  # Mr., Ms., Mrs., Dr., Prof., Mx.
     first_name = Column(String(100))
     last_name = Column(String(100))
     position = Column(String(255))
@@ -105,6 +106,7 @@ class EmailTemplate(Base):
 
     id = Column(BigInteger, primary_key=True)
     created_by_id = Column(BigInteger, ForeignKey("admin_users.id"))
+    default_landing_page_id = Column(BigInteger, ForeignKey("landing_pages.id"), nullable=True)
     name = Column(String(255), nullable=False)
     subject = Column(String(500), nullable=False)
     body_html = Column(Text, nullable=False)
@@ -116,6 +118,7 @@ class EmailTemplate(Base):
 
     # Relationships
     created_by = relationship("AdminUser", back_populates="email_templates")
+    default_landing_page = relationship("LandingPage", back_populates="email_templates")
     campaigns = relationship("Campaign", back_populates="email_template")
 
 
@@ -138,6 +141,7 @@ class LandingPage(Base):
     # Relationships
     created_by = relationship("AdminUser", back_populates="landing_pages")
     campaigns = relationship("Campaign", back_populates="landing_page")
+    email_templates = relationship("EmailTemplate", back_populates="default_landing_page")
     form_templates = relationship("FormTemplate", back_populates="landing_page")
 
 
@@ -201,6 +205,7 @@ class CampaignTarget(Base):
     id = Column(BigInteger, primary_key=True)
     campaign_id = Column(BigInteger, ForeignKey("campaigns.id"))
     target_id = Column(BigInteger, ForeignKey("targets.id"))
+    tracking_token = Column(String(255), unique=True)  # Unique token for tracking
     # Removed email_template_id and landing_page_id - now inherited from campaign
     status = Column(
         String(50), default="pending", nullable=False
