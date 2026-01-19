@@ -348,3 +348,5 @@ Special thanks to **Lycée Guillaume Kroll (LGK)** for their support and resourc
 Made with ❤️ by the LuxGuard Team • © 2025 Phishly Project
 
 </div>
+
+
