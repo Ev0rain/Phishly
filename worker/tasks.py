@@ -125,7 +125,7 @@ def send_phishing_email(self, campaign_id: int, target_id: int) -> dict:
 
             # Get landing page (cascade: campaign_target -> campaign -> template default)
             landing_page = (
-                getattr(campaign_target, "landing_page", None)
+                getattr(campaign_target, "landing_pages", None)
                 or campaign.landing_page
                 or getattr(email_template, "default_landing_page", None)
             )

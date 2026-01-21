@@ -36,6 +36,10 @@
                 <span class="icon">☰</span>
                 <span>Templates</span>
             </a>
+            <a href="/landing-pages" class="nav-item">
+                <span class="icon">◫</span>
+                <span>Landing Pages</span>
+            </a>
             <a href="/targets" class="nav-item">
                 <span class="icon">◉</span>
                 <span>Targets</span>
@@ -85,9 +89,15 @@
                 <div class="template-card" data-template-id="{{ template.id }}">
                     <div class="template-header">
                         <h3>{{ template.name }}</h3>
-                        <button class="btn-icon preview-btn" data-template-id="{{ template.id }}" title="Preview">
-                            ◉
-                        </button>
+                        <div class="template-actions">
+                            <button class="btn-icon preview-btn" data-template-id="{{ template.id }}" title="Preview">
+                                ◉
+                            </button>
+                            <button class="btn-icon btn-danger delete-btn" data-template-id="{{ template.id }}"
+                                    data-template-name="{{ template.name }}" title="Delete">
+                                ✕
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="template-subject">
@@ -149,19 +159,16 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="templateFile">HTML File <span class="required">*</span></label>
-                    <div class="file-upload-area" id="fileUploadArea">
-                        <input type="file" id="templateFile" name="template_file" accept=".html" required>
-                        <div class="file-upload-label">
-                            <span class="upload-icon">📄</span>
-                            <p><strong>Click to upload</strong> or drag and drop</p>
-                            <p class="file-hint">HTML files only</p>
-                        </div>
-                        <div class="file-selected" id="fileSelected" style="display: none;">
-                            <span class="file-icon">✓</span>
-                            <span class="file-name"></span>
-                        </div>
-                    </div>
+                    <label for="templateFile">Select Template File <span class="required">*</span></label>
+                    <select id="templateFile" name="template_file" required>
+                        <option value="">-- Loading templates... --</option>
+                    </select>
+                    <small class="form-hint">Choose from pre-built email templates in templates/email_templates/</small>
+                </div>
+
+                <div id="templatePreview" class="template-preview" style="display: none;">
+                    <h4>Template Preview</h4>
+                    <div id="templatePreviewContent" class="preview-content"></div>
                 </div>
                 
                 <div class="form-actions">

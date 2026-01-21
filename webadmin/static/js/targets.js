@@ -112,12 +112,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Download CSV template
-    const downloadTemplateLink = document.getElementById('downloadTemplate');
-    downloadTemplateLink?.addEventListener('click', function (e) {
-        e.preventDefault();
-        downloadCSVTemplate();
-    });
+    // Download CSV template - handler is in inline script in targets.html
+    // (removed redundant duplicate handler)
 
     // Close modals when clicking outside
     window.addEventListener('click', function (e) {
@@ -280,11 +276,10 @@ function displayMembers(members, container) {
  */
 function openEditModal(groupId) {
     const modal = document.getElementById('editGroupModal');
-    const form = document.getElementById('editGroupForm');
     const groupIdInput = document.getElementById('editGroupId');
     const nameInput = document.getElementById('editGroupName');
     const descriptionInput = document.getElementById('editGroupDescription');
-    const targetsInput = document.getElementById('editGroupTargets');
+    const editSpreadsheetBody = document.getElementById('editSpreadsheetBody');
 
     // Get group data from table row
     const row = document.querySelector(`tr[data-group-id="${groupId}"]`);
@@ -300,60 +295,37 @@ function openEditModal(groupId) {
     groupIdInput.value = groupId;
     nameInput.value = groupName;
     descriptionInput.value = groupDescription;
-    targetsInput.value = 'Loading members...';
-    targetsInput.disabled = true;
+
+    // Clear and show loading state in spreadsheet
+    editSpreadsheetBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Loading members...</td></tr>';
 
     // Fetch members from API
-    fetch(`/api/targets/${groupId}/members`)
+    fetch(`/targets/${groupId}/members`)
         .then(response => response.json())
         .then(data => {
-            if (data.success && data.members.length > 0) {
-                // Populate textarea with email addresses (one per line)
-                const emails = data.members.map(member => member.email).join('\n');
-                targetsInput.value = emails;
-                targetsInput.disabled = false;
+            if (data.success && data.members) {
+                // Call the global populateEditSpreadsheet function defined in inline script
+                if (typeof populateEditSpreadsheet === 'function') {
+                    populateEditSpreadsheet(data.members);
+                } else {
+                    console.error('populateEditSpreadsheet function not found');
+                    editSpreadsheetBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: red;">Error: Missing spreadsheet function</td></tr>';
+                }
             } else {
-                targetsInput.value = '';
-                targetsInput.placeholder = 'No members found. Add email addresses (one per line)';
-                targetsInput.disabled = false;
+                // No members, show empty rows
+                editSpreadsheetBody.innerHTML = '';
+                if (typeof addRowsToSpreadsheet === 'function') {
+                    addRowsToSpreadsheet(editSpreadsheetBody, 5);
+                }
             }
         })
         .catch(error => {
             console.error('Error fetching members:', error);
-            targetsInput.value = '';
-            targetsInput.placeholder = 'Error loading members. Add email addresses (one per line)';
-            targetsInput.disabled = false;
+            editSpreadsheetBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: red;">Error loading members</td></tr>';
         });
 
-    // Handle form submission
-    form.onsubmit = function (e) {
-        e.preventDefault();
-
-        const formData = new FormData();
-        formData.append('name', nameInput.value.trim());
-        formData.append('description', descriptionInput.value.trim());
-        formData.append('targets', targetsInput.value.trim());
-
-        // Submit via AJAX
-        fetch(`/targets/${groupId}/edit`, {
-            method: 'POST',
-            body: formData
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert(data.message);
-                    closeModal(modal);
-                    location.reload(); // Reload to show updated data
-                } else {
-                    alert(`Error: ${data.message}`);
-                }
-            })
-            .catch(error => {
-                console.error('Error updating group:', error);
-                alert('Error updating group. Please try again.');
-            });
-    };
+    // Form submission is handled by inline script in targets.html
+    // No need to set form.onsubmit here
 
     openModal(modal);
 }
@@ -383,26 +355,7 @@ function confirmDeleteGroup(groupId, groupName) {
     }
 }
 
-/**
- * Download CSV template file
- */
-function downloadCSVTemplate() {
-    const csvContent = `email,first_name,last_name,position,department
-john.doe@company.com,John,Doe,Senior Engineer,Engineering
-jane.smith@company.com,Jane,Smith,Marketing Manager,Marketing
-mike.johnson@company.com,Mike,Johnson,Sales Representative,Sales
-sarah.williams@company.com,Sarah,Williams,CFO,Finance`;
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'target_group_template.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-}
+// downloadCSVTemplate function removed - now handled by inline script in targets.html
 
 /**
  * Count emails in textarea (helper for UI)

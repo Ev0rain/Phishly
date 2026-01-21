@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Landing Pages - Phishly Admin</title>
+    <script src="{{ url_for('static', filename='js/theme-loader.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing_pages.css') }}">
+</head>
+<body>
+<!-- Sidebar Navigation -->
+<aside class="sidebar">
+    <div class="sidebar-header">
+        <div class="header-top">
+            <div class="header-branding">
+                <h1>Phishly</h1>
+                <p class="version">Admin Portal</p>
+            </div>
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                <span class="theme-icon">◐</span>
+            </button>
+        </div>
+    </div>
+
+    <nav class="sidebar-nav">
+        <a href="/" class="nav-item">
+            <span class="icon">▤</span>
+            <span>Dashboard</span>
+        </a>
+        <a href="/campaigns" class="nav-item">
+            <span class="icon">✉</span>
+            <span>Campaigns</span>
+        </a>
+        <a href="/templates" class="nav-item">
+            <span class="icon">☰</span>
+            <span>Templates</span>
+        </a>
+        <a href="/landing-pages" class="nav-item active">
+            <span class="icon">◫</span>
+            <span>Landing Pages</span>
+        </a>
+        <a href="/targets" class="nav-item">
+            <span class="icon">◉</span>
+            <span>Targets</span>
+        </a>
+        <a href="/analytics" class="nav-item">
+            <span class="icon">▦</span>
+            <span>Analytics</span>
+        </a>
+        <a href="/settings" class="nav-item">
+            <span class="icon">⚙</span>
+            <span>Settings</span>
+        </a>
+        <a href="/about" class="nav-item">
+            <span class="icon">ⓘ</span>
+            <span>About</span>
+        </a>
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="user-info">
+            <span class="icon">●</span>
+            <span>{{ current_user.username if current_user.is_authenticated else 'Admin User' }}</span>
+        </div>
+        <a href="/logout" class="logout-btn">
+            <span class="icon">⎋</span>
+            <span>Logout</span>
+        </a>
+    </div>
+</aside>
+
+<!-- Main Content -->
+<main class="main-content">
+    <div class="content-header">
+        <div>
+            <h1>Landing Pages</h1>
+            <p class="subtitle">Manage phishing landing pages from template library</p>
+        </div>
+        <button id="createLandingPageBtn" class="btn btn-primary">+ Create Landing Page</button>
+    </div>
+
+    <div class="landing-pages-list">
+        <h2>Existing Landing Pages ({{ total_pages }})</h2>
+
+        {% if landing_pages %}
+            <table class="landing-pages-table">
+                <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>URL Path</th>
+                    <th>Domain</th>
+                    <th>Template</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for lp in landing_pages %}
+                    <tr data-id="{{ lp.id }}" {% if lp.id == active_landing_page_id %}class="active-row"{% endif %}>
+                        <td><strong>{{ lp.name }}</strong></td>
+                        <td><code>{{ lp.url_path }}</code></td>
+                        <td>{{ lp.domain or 'Not set' }}</td>
+                        <td>
+                            {% if lp.template_path %}
+                                <span class="badge badge-template">{{ lp.template_path }}</span>
+                            {% else %}
+                                <span class="badge badge-legacy">Database</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if lp.id == active_landing_page_id %}
+                                <span class="badge badge-success">✓ Active</span>
+                            {% else %}
+                                <span class="badge badge-default">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if lp.id == active_landing_page_id %}
+                                <button class="btn btn-sm btn-preview" data-id="{{ lp.id }}">Preview</button>
+                                <a href="/landing-pages/dns-zone" class="btn btn-sm btn-info" download>Download DNS</a>
+                                <button class="btn btn-sm btn-delete" data-id="{{ lp.id }}">Delete</button>
+                            {% else %}
+                                <button class="btn btn-sm btn-activate" data-id="{{ lp.id }}">Activate</button>
+                                <button class="btn btn-sm btn-preview" data-id="{{ lp.id }}">Preview</button>
+                                <button class="btn btn-sm btn-delete" data-id="{{ lp.id }}">Delete</button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty-state">
+                <p>No landing pages yet. Create your first landing page from a template!</p>
+            </div>
+        {% endif %}
+    </div>
+    </div>
+
+    <!-- Create Landing Page Modal -->
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create Landing Page</h2>
+                <span class="close">&times;</span>
+            </div>
+            <form id="createLandingPageForm">
+                <div class="form-section">
+                    <h3>Basic Information</h3>
+
+                    <div class="form-group">
+                        <label for="name">Landing Page Name *</label>
+                        <input type="text" id="name" name="name" required
+                               placeholder="e.g., Office 365 Login Page">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="url_path">URL Path *</label>
+                        <input type="text" id="url_path" name="url_path" required
+                               placeholder="e.g., /login or /portal">
+                        <small>The path where this page will be accessible</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="domain">Domain</label>
+                        <input type="text" id="domain" name="domain"
+                               placeholder="e.g., phishing.example.com">
+                        <small>Optional: The domain where this page will be hosted</small>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Template Selection</h3>
+
+                    <div class="form-group">
+                        <label for="template_path">Select Template Folder *</label>
+                        <select id="template_path" name="template_path" required>
+                            <option value="">-- Loading templates... --</option>
+                        </select>
+                        <small>Choose a pre-built template from the library</small>
+                    </div>
+
+                    <div id="templateInfo" class="template-info" style="display: none;">
+                        <h4>Template Information</h4>
+                        <div id="templateDetails"></div>
+
+                        <div class="form-group">
+                            <label>Entry Pages Available:</label>
+                            <div id="entryPages" class="entry-pages-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Behavior Settings</h3>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="capture_credentials" name="capture_credentials" checked>
+                            Capture credentials (username/password)
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="capture_form_data" name="capture_form_data" checked>
+                            Capture all form data
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="redirect_url">Redirect URL (after submission) *</label>
+                        <input type="text" id="redirect_url" name="redirect_url"
+                               value="/awareness"
+                               placeholder="/awareness">
+                        <small>Where to redirect users after they submit credentials (default: /awareness for info
+                            page)</small>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelCreate">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Landing Page</button>
+                </div>
+            </form>
+        </div>
+</main>
+
+<script src="{{ url_for('static', filename='js/theme-switcher.js') }}"></script>
+<script src="{{ url_for('static', filename='js/landing_pages.js') }}"></script>
+</script>
+</body>
+</html>

@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 # Cache directory (shared volume between webadmin and phishing-server)
 CACHE_DIR = Path(os.getenv("LANDING_PAGE_CACHE_DIR", "/app/shared_cache"))
+ACTIVE_CACHE_DIR = CACHE_DIR / "active"
 
 
 def cache_landing_page(
@@ -156,3 +157,84 @@ def generate_task_id(campaign_id: int, target_id: int) -> str:
     timestamp = int(time.time())
     random_suffix = secrets.token_hex(4)
     return f"phishly-c{campaign_id}-t{target_id}-{timestamp}-{random_suffix}"
+
+
+def cache_active_landing_page(landing_page) -> Optional[Path]:
+    """
+    Cache the active landing page for the phishing server.
+
+    Creates the following structure:
+    cache/active/{url_path}/
+        ├── index.html
+        ├── style.css (optional)
+        └── script.js (optional)
+
+    Args:
+        landing_page: LandingPage model instance or dict
+
+    Returns:
+        Path to cached directory, or None if caching failed
+    """
+    if not landing_page:
+        logger.warning("Cannot cache: no landing page provided")
+        return None
+
+    # Handle dict or object
+    html_content = landing_page.get("html_content") if isinstance(landing_page, dict) else landing_page.html_content
+    url_path = landing_page.get("url_path") if isinstance(landing_page, dict) else landing_page.url_path
+    css_content = landing_page.get("css_content") if isinstance(landing_page, dict) else getattr(landing_page, "css_content", None)
+    js_content = landing_page.get("js_content") if isinstance(landing_page, dict) else getattr(landing_page, "js_content", None)
+
+    if not html_content:
+        logger.warning("Cannot cache active landing page: no HTML content")
+        return None
+
+    try:
+        # Normalize URL path
+        url_path_normalized = (url_path or "default").strip("/")
+
+        # Create cache directory
+        cache_dir = ACTIVE_CACHE_DIR / url_path_normalized
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        # Write HTML file
+        html_file = cache_dir / "index.html"
+        html_file.write_text(html_content, encoding="utf-8")
+        logger.info(f"Cached active landing page HTML: {html_file}")
+
+        # Write CSS file if exists
+        if css_content:
+            css_file = cache_dir / "style.css"
+            css_file.write_text(css_content, encoding="utf-8")
+            logger.info(f"Cached active landing page CSS: {css_file}")
+
+        # Write JS file if exists
+        if js_content:
+            js_file = cache_dir / "script.js"
+            js_file.write_text(js_content, encoding="utf-8")
+            logger.info(f"Cached active landing page JS: {js_file}")
+
+        logger.info(f"Successfully cached active landing page at {cache_dir}")
+        return cache_dir
+
+    except Exception as e:
+        logger.error(f"Error caching active landing page: {e}")
+        return None
+
+
+def clear_active_cache() -> bool:
+    """
+    Clear the active landing page cache.
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        if ACTIVE_CACHE_DIR.exists():
+            import shutil
+            shutil.rmtree(ACTIVE_CACHE_DIR)
+            logger.info("Cleared active landing page cache")
+        return True
+    except Exception as e:
+        logger.error(f"Error clearing active cache: {e}")
+        return False

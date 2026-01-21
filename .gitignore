@@ -1,5 +1,8 @@
+!*/.gitkeep
+
 .github/
 venv/
+.venv/
 
 # Python cache
 __pycache__/
@@ -21,3 +24,10 @@ uv.lock
 # OS
 .DS_Store
 Thumbs.db!/.python-version
+
+# Phishing templates (email and landing pages)
+# Contains sensitive phishing content - should NOT be committed
+# Note: /templates/ (root-level with leading slash) ignores only the root templates directory
+# Flask UI templates in webadmin/templates/ remain tracked as they are not in the root
+/templates/
+/webadmin/dns_zones/

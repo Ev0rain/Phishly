@@ -40,4 +40,4 @@ python-dotenv==1.0.0
 # ============================================
 # Production Server
 # ============================================
-# gunicorn==21.2.0        # WSGI server for production
+# gunicorn==21.2.0        # WSGI server for productionrequests==2.31.0

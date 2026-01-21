@@ -95,8 +95,14 @@ services:
       - ./webadmin:/app
       # Mount shared db models directory
       - ./db:/app/db
-      # Shared volume for landing page cache (write access)
+      # Shared volume for landing page cache (write access) - LEGACY
       - landing_page_cache:/app/shared_cache
+      # DNS zone files (for active landing page)
+      - dns_zone_files:/app/dns_zones
+      # NEW: Template library (read-only)
+      - ./templates:/templates:ro
+      # NEW: Campaign deployments (write access)
+      - campaign_deployments:/app/campaign_landing_pages:rw
       # Exclude Python cache
       - /app/__pycache__
       - /app/.pytest_cache
@@ -194,8 +200,10 @@ services:
       CACHE_DIR: /app/cache
 
     volumes:
-      # Shared volume for landing page cache
+      # Shared volume for landing page cache - LEGACY
       - landing_page_cache:/app/cache:ro
+      # NEW: Campaign deployments (read-only)
+      - campaign_deployments:/app/campaign_landing_pages:ro
 
     networks:
       - net_public
@@ -287,3 +295,7 @@ volumes:
     name: phishly_caddy_config
   landing_page_cache:
     name: phishly_landing_page_cache
+  dns_zone_files:
+    name: phishly_dns_zone_files
+  campaign_deployments:
+    name: phishly_campaign_deployments

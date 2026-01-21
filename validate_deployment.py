@@ -133,7 +133,7 @@ def check_required_directories():
         "worker",
         "db",
         "redis",
-        "Templates/email_templates"
+        "templates/email_templates"
     ]
 
     for dir_path in required_dirs:
@@ -221,11 +221,11 @@ def check_worker_files():
 
 def check_email_templates():
     """Check if email templates exist"""
-    print_header("Email Templates Check")
+    print_header("Email templates Check")
 
-    templates_dir = Path("Templates/email_templates")
+    templates_dir = Path("templates/email_templates")
     if not templates_dir.exists():
-        check_fail("Templates/email_templates directory not found")
+        check_fail("templates/email_templates directory not found")
         return False
 
     templates = list(templates_dir.glob("*.html")) + list(templates_dir.glob("*.txt"))
@@ -281,7 +281,7 @@ Pre-Deployment Validation
     results.append(("Structure", check_required_directories()))
     results.append(("Database", check_database_files()))
     results.append(("Worker", check_worker_files()))
-    results.append(("Templates", check_email_templates()))
+    results.append(("templates", check_email_templates()))
     results.append(("Dependencies", check_requirements()))
 
     # Summary

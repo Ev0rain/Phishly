@@ -1,5 +1,5 @@
 """
-Email Templates Blueprint
+Email templates Blueprint
 Handles template listing, preview, and import functionality
 """
 
@@ -77,12 +77,13 @@ def get_template_details(template_id):
 @login_required
 def import_template():
     """
-    Import a new email template
-    Accepts: name, subject, tags (comma-separated), and HTML file
+    Import a new email template from templates/email_templates/
+    Accepts: name, subject, tags (comma-separated), and template filename
     """
     # Get form data
     name = request.form.get("name")
     subject = request.form.get("subject")
+    template_filename = request.form.get("template_file")
     # tags_string = request.form.get("tags", "")  # Not currently used
 
     # Validate required fields
@@ -92,28 +93,16 @@ def import_template():
             400,
         )
 
-    # Get uploaded file
-    if "template_file" not in request.files:
-        return jsonify({"success": False, "message": "No file uploaded"}), 400
+    # Validate template file is selected
+    if not template_filename:
+        return jsonify({"success": False, "message": "No template file selected"}), 400
 
-    file = request.files["template_file"]
+    # Read template content from filesystem
+    success, html_content = templates_repo.get_template_file_content(template_filename)
 
-    if file.filename == "":
-        return jsonify({"success": False, "message": "No file selected"}), 400
-
-    # Validate file extension
-    if not file.filename.endswith(".html"):
+    if not success:
         return (
-            jsonify({"success": False, "message": "Only HTML files are allowed"}),
-            400,
-        )
-
-    # Read file content
-    try:
-        html_content = file.read().decode("utf-8")
-    except Exception as e:
-        return (
-            jsonify({"success": False, "message": f"Error reading file: {str(e)}"}),
+            jsonify({"success": False, "message": html_content}),  # html_content contains error message
             400,
         )
 
@@ -150,3 +139,54 @@ def import_template():
         )
     else:
         return jsonify({"success": False, "message": message}), 500
+
+
+@templates_bp.route("/templates/<int:template_id>/delete", methods=["POST", "DELETE"])
+@login_required
+def delete_template(template_id):
+    """Delete an email template"""
+    template = templates_repo.get_template_by_id(template_id)
+
+    if not template:
+        return jsonify({"success": False, "message": "Template not found"}), 404
+
+    template_name = template.get("name", "Unknown")
+
+    success, message = templates_repo.delete_template(template_id)
+
+    if success:
+        return jsonify({
+            "success": True,
+            "message": f"Template '{template_name}' deleted successfully"
+        })
+    else:
+        return jsonify({"success": False, "message": message}), 500
+
+
+@templates_bp.route("/templates/available-files")
+@login_required
+def list_available_template_files():
+    """List all available email template .html files in templates/email_templates/"""
+    templates = templates_repo.list_available_template_files()
+
+    return jsonify({
+        "success": True,
+        "templates": templates,
+        "count": len(templates),
+    })
+
+
+@templates_bp.route("/templates/file/<filename>/content")
+@login_required
+def get_template_file_content(filename):
+    """Get the content of a template file"""
+    success, content = templates_repo.get_template_file_content(filename)
+
+    if success:
+        return jsonify({
+            "success": True,
+            "filename": filename,
+            "content": content,
+        })
+    else:
+        return jsonify({"success": False, "message": content}), 404

@@ -193,12 +193,14 @@ class EmailJob(Base):
 
     id = Column(BigInteger, primary_key=True)
     campaign_target_id = Column(BigInteger, ForeignKey("campaign_targets.id"))
-    status = Column(String(50))  # queued, sending, sent, failed
+    celery_task_id = Column(String(255))  # Celery task ID for revocation
+    status = Column(String(50))  # pending, queued, sending, sent, failed, bounced, revoked
     scheduled_at = Column(DateTime)
     sent_at = Column(DateTime)
+    delay_seconds = Column(Integer)  # Random delay assigned for this email
     error_message = Column(Text)
     retry_count = Column(Integer, default=0)
-    celery_task_id = Column(String(255))  # Celery task ID for tracking
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     campaign_target = relationship("CampaignTarget")
 

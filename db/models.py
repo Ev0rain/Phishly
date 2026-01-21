@@ -129,9 +129,17 @@ class LandingPage(Base):
     created_by_id = Column(BigInteger, ForeignKey("admin_users.id"))
     name = Column(String(255), nullable=False)
     url_path = Column(String(255), unique=True, nullable=False)  # e.g., /login-portal
-    html_content = Column(Text, nullable=False)
+    domain = Column(String(255))  # e.g., phishing.example.com or full URL https://phishing.example.com/login
+
+    # DEPRECATED: Content columns - use template_path instead
+    # These columns are kept for backwards compatibility during migration
+    html_content = Column(Text)  # Now nullable - use template_path for new pages
     css_content = Column(Text)
     js_content = Column(Text)
+
+    # NEW: Filesystem path to template directory (e.g., "phish-page", "info_page")
+    template_path = Column(String(500))  # Path relative to /templates/landing_pages/
+
     capture_credentials = Column(Boolean, default=False)
     capture_form_data = Column(Boolean, default=True)
     redirect_url = Column(String(500))  # Where to redirect after submission
@@ -143,6 +151,25 @@ class LandingPage(Base):
     campaigns = relationship("Campaign", back_populates="landing_page")
     email_templates = relationship("EmailTemplate", back_populates="default_landing_page")
     form_templates = relationship("FormTemplate", back_populates="landing_page")
+
+
+class ActiveConfiguration(Base):
+    """Singleton table for active landing page configuration."""
+    __tablename__ = "active_configuration"
+
+    id = Column(BigInteger, primary_key=True)  # Always 1 (singleton)
+    active_landing_page_id = Column(BigInteger, ForeignKey("landing_pages.id"), nullable=True)
+    activated_at = Column(DateTime)
+    activated_by_id = Column(BigInteger, ForeignKey("admin_users.id"), nullable=True)
+    dns_zone_file_path = Column(String(500))
+    phishing_domain = Column(String(255))
+    public_ip = Column(String(45))  # IPv4/IPv6 for DNS A record
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+
+    # Relationships
+    active_landing_page = relationship("LandingPage")
+    activated_by = relationship("AdminUser")
 
 
 class Campaign(Base):
@@ -225,9 +252,10 @@ class EmailJob(Base):
 
     id = Column(BigInteger, primary_key=True)
     campaign_target_id = Column(BigInteger, ForeignKey("campaign_targets.id"))
+    celery_task_id = Column(String(255))  # Celery task ID for revocation
     status = Column(
         String(50), default="pending", nullable=False
-    )  # pending, sending, sent, failed, bounced
+    )  # pending, queued, sending, sent, failed, bounced, revoked
     scheduled_at = Column(DateTime)  # When the email is scheduled to be sent
     sent_at = Column(DateTime)  # Actual send time
     delay_seconds = Column(Integer)  # Random delay assigned for this email

@@ -46,7 +46,8 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 BASE_DIR = Path(__file__).resolve().parent
-CACHE_DIR = Path(os.getenv("CACHE_DIR", "/app/cache"))
+CACHE_DIR = Path(os.getenv("CACHE_DIR", "/app/cache"))  # Legacy cache support
+CAMPAIGN_DEPLOYMENTS_DIR = Path("/app/campaign_landing_pages")  # NEW: Campaign deployments
 PHISHING_DOMAIN = os.getenv("PHISHING_DOMAIN", "phishing.example.com")
 
 # Create Flask app
@@ -111,22 +112,107 @@ def parse_user_agent(user_agent_str: str) -> dict:
     }
 
 
+def get_active_campaign_id() -> int | None:
+    """
+    Get the active campaign ID from the database.
+
+    Returns:
+        Campaign ID if found, None otherwise
+    """
+    try:
+        with db_manager.get_session() as session:
+            # Query for active landing page configuration
+            from database import get_active_landing_page_config
+            config = get_active_landing_page_config(session)
+            if config and config.active_landing_page:
+                # Get campaign using this landing page
+                from db.models import Campaign
+                campaign = session.query(Campaign).filter(
+                    Campaign.landing_page_id == config.active_landing_page_id,
+                    Campaign.status == 'active'
+                ).first()
+                if campaign:
+                    return campaign.id
+    except Exception as e:
+        logger.error(f"Error getting active campaign: {e}")
+    return None
+
+
 def find_cached_landing_page(url_path: str) -> tuple[Path, dict] | None:
     """
     Find cached landing page by URL path.
 
-    Searches in cache directory structure:
-    cache/{campaign_id}/{url_path}/index.html
+    Priority:
+    1. Preview deployment (campaign_landing_pages/preview/) - if path starts with "preview/"
+    2. Campaign deployments (campaign_landing_pages/{campaign_id}/)
+    3. Active landing page cache (cache/active/{url_path}/) - LEGACY
+    4. Campaign-specific cache (cache/{campaign_id}/{url_path}/) - LEGACY
 
     Returns:
         Tuple of (cache_dir_path, landing_page_info) or None if not found
     """
     normalized_path = url_path.strip("/")
 
-    # Search all campaign cache directories
+    # PREVIEW: Check if this is a preview request (path starts with "preview/")
+    if normalized_path.startswith("preview/") or normalized_path == "preview":
+        preview_dir = CAMPAIGN_DEPLOYMENTS_DIR / "preview"
+        if preview_dir.exists():
+            # Remove "preview/" prefix from path
+            preview_path = normalized_path.replace("preview/", "", 1) if normalized_path.startswith("preview/") else ""
+
+            if not preview_path:
+                # Just "/preview" - serve index.html
+                index_file = preview_dir / "index.html"
+                if index_file.exists():
+                    return preview_dir, {"preview": True}
+            else:
+                # "/preview/something.html" or "/preview/assets/..."
+                direct_file = preview_dir / preview_path
+                if direct_file.exists() and direct_file.is_file():
+                    return preview_dir, {"preview": True, "file": preview_path}
+
+                # Try as directory with index.html
+                page_dir = preview_dir / preview_path
+                index_file = page_dir / "index.html"
+                if index_file.exists():
+                    return page_dir, {"preview": True}
+
+    # NEW: Check campaign deployments (highest priority for non-preview)
+    if CAMPAIGN_DEPLOYMENTS_DIR.exists():
+        # Try to find active campaign
+        active_campaign_id = get_active_campaign_id()
+        if active_campaign_id:
+            campaign_dir = CAMPAIGN_DEPLOYMENTS_DIR / str(active_campaign_id)
+            if campaign_dir.exists():
+                # Try exact path match first (e.g., "login.html")
+                direct_file = campaign_dir / normalized_path
+                if direct_file.exists() and direct_file.is_file():
+                    return campaign_dir, {"campaign_id": active_campaign_id, "file": normalized_path}
+
+                # Try as directory with index.html
+                page_dir = campaign_dir / normalized_path
+                index_file = page_dir / "index.html"
+                if index_file.exists():
+                    return page_dir, {"campaign_id": active_campaign_id}
+
+                # Try root index.html if path is empty or "/"
+                if not normalized_path:
+                    index_file = campaign_dir / "index.html"
+                    if index_file.exists():
+                        return campaign_dir, {"campaign_id": active_campaign_id}
+
+    # LEGACY: Check active cache
+    active_cache_dir = CACHE_DIR / "active"
+    if active_cache_dir.exists():
+        page_dir = active_cache_dir / normalized_path
+        index_file = page_dir / "index.html"
+        if index_file.exists():
+            return page_dir, {"source": "active"}
+
+    # LEGACY: Fall back to campaign-specific caches
     if CACHE_DIR.exists():
         for campaign_dir in CACHE_DIR.iterdir():
-            if campaign_dir.is_dir():
+            if campaign_dir.is_dir() and campaign_dir.name != "active":
                 page_dir = campaign_dir / normalized_path
                 index_file = page_dir / "index.html"
                 if index_file.exists():
@@ -325,10 +411,10 @@ def serve_landing_page(url_path):
     """
     Serve landing page and track link clicks.
 
-    1. Look up landing page in cache
+    1. Look up landing page in cache or campaign deployment
     2. Validate tracking token (if present)
-    3. Log link_clicked or anonymous_visit event
-    4. Serve the HTML content
+    3. Log link_clicked or anonymous_visit event (for HTML pages only)
+    4. Serve the content with proper MIME type
     """
     token = request.args.get("t")
     ip_address = get_client_ip()
@@ -341,36 +427,75 @@ def serve_landing_page(url_path):
     if cache_result:
         cache_dir, cache_info = cache_result
 
-        # Track the visit
-        if token:
-            try:
-                with db_manager.get_session() as session:
-                    campaign_target = get_campaign_target_by_token(session, token)
+        # Determine file to serve
+        file_to_serve = "index.html"
+        is_html_page = True
 
-                    if campaign_target:
-                        # Valid token - log link_clicked
-                        log_event(
-                            session,
-                            campaign_target_id=campaign_target.id,
-                            event_type_name="link_clicked",
-                            ip_address=ip_address,
-                            user_agent=user_agent,
-                            browser=ua_info["browser"],
-                            os_name=ua_info["os"],
-                            device_type=ua_info["device_type"],
-                        )
+        # Check if this is a direct file reference (e.g., "login.html", "assets/css/style.css")
+        if "file" in cache_info:
+            file_to_serve = cache_info["file"]
+            is_html_page = file_to_serve.endswith(".html")
+        elif url_path.endswith((".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".avif", ".ico", ".woff", ".woff2", ".ttf", ".eot")):
+            # This is a static asset, not a landing page
+            is_html_page = False
+            file_to_serve = url_path.split("/")[-1]  # Get filename
+        elif url_path.endswith(".html"):
+            # Direct HTML file reference
+            file_to_serve = url_path.split("/")[-1]
+            is_html_page = True
 
-                        # Update status to "clicked"
-                        update_campaign_target_status(
-                            session, campaign_target.id, "clicked"
-                        )
+        # Track the visit (only for HTML pages, not for static assets)
+        if is_html_page:
+            if token:
+                try:
+                    with db_manager.get_session() as session:
+                        campaign_target = get_campaign_target_by_token(session, token)
 
-                        logger.info(
-                            f"Link clicked: token={token[:8]}... "
-                            f"url_path={url_path} target_id={campaign_target.target_id}"
-                        )
-                    else:
-                        # Invalid token
+                        if campaign_target:
+                            # Valid token - log link_clicked
+                            log_event(
+                                session,
+                                campaign_target_id=campaign_target.id,
+                                event_type_name="link_clicked",
+                                ip_address=ip_address,
+                                user_agent=user_agent,
+                                browser=ua_info["browser"],
+                                os_name=ua_info["os"],
+                                device_type=ua_info["device_type"],
+                            )
+
+                            # Update status to "clicked"
+                            update_campaign_target_status(
+                                session, campaign_target.id, "clicked"
+                            )
+
+                            logger.info(
+                                f"Link clicked: token={token[:8]}... "
+                                f"url_path={url_path} target_id={campaign_target.target_id}"
+                            )
+                        else:
+                            # Invalid token
+                            log_event(
+                                session,
+                                campaign_target_id=None,
+                                event_type_name="anonymous_visit",
+                                ip_address=ip_address,
+                                user_agent=user_agent,
+                                browser=ua_info["browser"],
+                                os_name=ua_info["os"],
+                                device_type=ua_info["device_type"],
+                            )
+                            logger.warning(
+                                f"Anonymous visit (invalid token): url_path={url_path}"
+                            )
+
+                except Exception as e:
+                    logger.error(f"Error tracking link click: {e}")
+
+            else:
+                # No token - anonymous visit
+                try:
+                    with db_manager.get_session() as session:
                         log_event(
                             session,
                             campaign_target_id=None,
@@ -381,34 +506,19 @@ def serve_landing_page(url_path):
                             os_name=ua_info["os"],
                             device_type=ua_info["device_type"],
                         )
-                        logger.warning(
-                            f"Anonymous visit (invalid token): url_path={url_path}"
-                        )
+                        logger.warning(f"Anonymous visit (no token): url_path={url_path}")
 
-            except Exception as e:
-                logger.error(f"Error tracking link click: {e}")
+                except Exception as e:
+                    logger.error(f"Error logging anonymous visit: {e}")
 
+        # Serve the file from the campaign deployment or cache directory
+        # Handle nested paths for assets (e.g., "assets/home/style.css")
+        if "file" in cache_info:
+            # Direct file reference - serve from campaign root
+            return send_from_directory(cache_dir, cache_info["file"])
         else:
-            # No token - anonymous visit
-            try:
-                with db_manager.get_session() as session:
-                    log_event(
-                        session,
-                        campaign_target_id=None,
-                        event_type_name="anonymous_visit",
-                        ip_address=ip_address,
-                        user_agent=user_agent,
-                        browser=ua_info["browser"],
-                        os_name=ua_info["os"],
-                        device_type=ua_info["device_type"],
-                    )
-                    logger.warning(f"Anonymous visit (no token): url_path={url_path}")
-
-            except Exception as e:
-                logger.error(f"Error logging anonymous visit: {e}")
-
-        # Serve the cached landing page
-        return send_from_directory(cache_dir, "index.html")
+            # Serve index.html or other file
+            return send_from_directory(cache_dir, file_to_serve)
 
     # No cache found - try database lookup
     try:

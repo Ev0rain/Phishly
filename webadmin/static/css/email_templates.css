@@ -1,5 +1,5 @@
 /**
- * Email Templates Page Styles
+ * Email templates Page Styles
  * Grid layout, cards, modals, and preview
  */
 
@@ -41,7 +41,7 @@
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
 }
 
-/* Templates Grid Layout */
+/* templates Grid Layout */
 .templates-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -80,6 +80,11 @@
     flex: 1;
 }
 
+.template-actions {
+    display: flex;
+    gap: 8px;
+}
+
 .btn-icon {
     background: var(--bg-secondary);
     border: none;
@@ -92,11 +97,18 @@
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
+    color: var(--text-secondary);
 }
 
 .btn-icon:hover {
     background: var(--primary-color);
+    color: white;
     transform: scale(1.05);
+}
+
+.btn-icon.btn-danger:hover {
+    background: #ef4444;
+    color: white;
 }
 
 .template-subject {
@@ -231,19 +243,31 @@ form {
 }
 
 .form-group input[type="text"],
-.form-group input[type="email"] {
+.form-group input[type="email"],
+.form-group select {
     width: 100%;
     padding: 10px 14px;
     border: 1px solid var(--border-color);
     border-radius: 8px;
     font-size: 14px;
     transition: all 0.2s ease;
+    background: white;
+    color: var(--text-primary);
 }
 
-.form-group input:focus {
+.form-group input:focus,
+.form-group select:focus {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+[data-theme="dark"] .form-group input[type="text"],
+[data-theme="dark"] .form-group input[type="email"],
+[data-theme="dark"] .form-group select {
+    background: hsl(var(--background));
+    border-color: hsl(var(--border));
+    color: hsl(var(--foreground));
 }
 
 .form-hint {
@@ -320,6 +344,34 @@ form {
 .file-name {
     font-weight: 600;
     color: var(--text-primary);
+}
+
+/* Template Preview */
+.template-preview {
+    margin-top: 20px;
+    padding: 15px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.template-preview h4 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.preview-content {
+    font-family: monospace;
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 10px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
 }
 
 /* Form Actions */

@@ -1,0 +1,400 @@
+/**
+ * Landing Pages Management JavaScript
+ * Updated for template-based landing pages
+ */
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Modal elements
+    const modal = document.getElementById('createModal');
+    const form = document.getElementById('createLandingPageForm');
+
+    // Form fields
+    const landingPageIdField = document.getElementById('landingPageId');
+    const pageNameField = document.getElementById('pageName');
+    const urlPathField = document.getElementById('urlPath');
+    const domainField = document.getElementById('domain');
+    const htmlContentField = document.getElementById('htmlContent');
+    const cssContentField = document.getElementById('cssContent');
+    const jsContentField = document.getElementById('jsContent');
+    const redirectUrlField = document.getElementById('redirectUrl');
+    const captureCredentialsField = document.getElementById('captureCredentials');
+    const captureFormDataField = document.getElementById('captureFormData');
+
+    // File upload
+    const htmlFileInput = document.getElementById('htmlFile');
+    const fileSelected = document.getElementById('fileSelected');
+
+    // Tab switching
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const editorTab = document.getElementById('editorTab');
+    const uploadTab = document.getElementById('uploadTab');
+
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', function () {
+            tabBtns.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+
+            const tab = this.getAttribute('data-tab');
+            if (tab === 'editor') {
+                editorTab.style.display = 'block';
+                uploadTab.style.display = 'none';
+            } else {
+                editorTab.style.display = 'none';
+                uploadTab.style.display = 'block';
+            }
+        });
+    });
+
+    // File input change
+    if (htmlFileInput) {
+        htmlFileInput.addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (file) {
+                showFileSelected(file.name);
+                // Read file content into editor
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    htmlContentField.value = e.target.result;
+                };
+                reader.readAsText(file);
+            }
+        });
+    }
+
+    function showFileSelected(filename) {
+        document.querySelector('#uploadTab .file-upload-label').style.display = 'none';
+        fileSelected.style.display = 'flex';
+        fileSelected.querySelector('.file-name').textContent = filename;
+    }
+
+    function hideFileSelected() {
+        const uploadLabel = document.querySelector('#uploadTab .file-upload-label');
+        if (uploadLabel) uploadLabel.style.display = 'block';
+        if (fileSelected) fileSelected.style.display = 'none';
+    }
+
+    // Open create modal
+    document.getElementById('createLandingPageBtn').addEventListener('click', function () {
+        resetForm();
+        modalTitle.textContent = 'Create Landing Page';
+        submitBtn.textContent = 'Create Landing Page';
+        modal.classList.add('show');
+    });
+
+    // Close modals
+    document.getElementById('closeModal').addEventListener('click', closeModal);
+    document.getElementById('cancelBtn').addEventListener('click', closeModal);
+    document.getElementById('closePreviewModal').addEventListener('click', closePreviewModal);
+
+    modal.addEventListener('click', function (e) {
+        if (e.target === modal) closeModal();
+    });
+
+    previewModal.addEventListener('click', function (e) {
+        if (e.target === previewModal) closePreviewModal();
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closeModal();
+            closePreviewModal();
+        }
+    });
+
+    function closeModal() {
+        modal.classList.remove('show');
+        resetForm();
+    }
+
+    function closePreviewModal() {
+        previewModal.classList.remove('show');
+        document.getElementById('previewFrame').srcdoc = '';
+    }
+
+    function resetForm() {
+        form.reset();
+        landingPageIdField.value = '';
+        hideFileSelected();
+        // Reset tabs
+        tabBtns.forEach(b => b.classList.remove('active'));
+        tabBtns[0].classList.add('active');
+        editorTab.style.display = 'block';
+        uploadTab.style.display = 'none';
+    }
+
+    // Edit buttons
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const pageId = this.getAttribute('data-page-id');
+            loadLandingPageForEdit(pageId);
+        });
+    });
+
+    function loadLandingPageForEdit(pageId) {
+        fetch(`/landing-pages/${pageId}/details`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const lp = data.landing_page;
+                    landingPageIdField.value = lp.id;
+                    pageNameField.value = lp.name;
+                    urlPathField.value = lp.url_path;
+                    domainField.value = lp.domain || '';
+                    htmlContentField.value = lp.html_content || '';
+                    cssContentField.value = lp.css_content || '';
+                    jsContentField.value = lp.js_content || '';
+                    redirectUrlField.value = lp.redirect_url || '';
+                    captureCredentialsField.checked = lp.capture_credentials;
+                    captureFormDataField.checked = lp.capture_form_data;
+
+                    modalTitle.textContent = 'Edit Landing Page';
+                    submitBtn.textContent = 'Update Landing Page';
+                    modal.classList.add('show');
+                } else {
+                    showNotification(data.error || 'Failed to load landing page', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Failed to load landing page', 'error');
+            });
+    }
+
+    // Preview buttons
+    document.querySelectorAll('.preview-btn').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const pageId = this.getAttribute('data-page-id');
+            loadPreview(pageId);
+        });
+    });
+
+    function loadPreview(pageId) {
+        previewModal.classList.add('show');
+        document.getElementById('previewName').textContent = 'Loading...';
+        document.getElementById('previewUrl').textContent = '';
+        document.getElementById('previewFrame').srcdoc = '<div style="padding: 40px; text-align: center; color: #666;">Loading preview...</div>';
+
+        fetch(`/landing-pages/${pageId}/preview`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('previewName').textContent = data.name;
+                    document.getElementById('previewUrl').textContent = data.url_path;
+
+                    // Combine HTML with CSS and JS
+                    let html = data.html;
+                    if (data.css) {
+                        html = html.replace('</head>', `<style>${data.css}</style></head>`);
+                    }
+                    if (data.js) {
+                        html = html.replace('</body>', `<script>${data.js}<\/script></body>`);
+                    }
+                    document.getElementById('previewFrame').srcdoc = html;
+                } else {
+                    showNotification('Failed to load preview', 'error');
+                    closePreviewModal();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Failed to load preview', 'error');
+                closePreviewModal();
+            });
+    }
+
+    // Delete buttons
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const pageId = this.getAttribute('data-page-id');
+            const card = this.closest('.landing-page-card');
+            const pageName = card.querySelector('h3').textContent;
+
+            if (confirm(`Are you sure you want to delete "${pageName}"?\n\nThis action cannot be undone.`)) {
+                deleteLandingPage(pageId, card);
+            }
+        });
+    });
+
+    function deleteLandingPage(pageId, cardElement) {
+        fetch(`/landing-pages/${pageId}/delete`, {
+            method: 'POST',
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    cardElement.style.opacity = '0';
+                    cardElement.style.transform = 'scale(0.9)';
+                    setTimeout(() => cardElement.remove(), 300);
+                } else {
+                    showNotification(data.message || 'Failed to delete', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Failed to delete landing page', 'error');
+            });
+    }
+
+    // Form submission
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const pageId = landingPageIdField.value;
+        const isEdit = !!pageId;
+        const url = isEdit ? `/landing-pages/${pageId}/update` : '/landing-pages/create';
+
+        const formData = new FormData(form);
+
+        // Show loading
+        const originalText = submitBtn.textContent;
+        submitBtn.textContent = isEdit ? 'Updating...' : 'Creating...';
+        submitBtn.disabled = true;
+
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    closeModal();
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    showNotification(data.message || 'Operation failed', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Operation failed. Please try again.', 'error');
+            })
+            .finally(() => {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            });
+    });
+
+    // ============================================
+    // Active Landing Page Management
+    // ============================================
+
+    // Load active landing page info on page load
+    function loadActiveLandingPage() {
+        fetch('/landing-pages/active')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const banner = document.getElementById('activeBanner');
+                    const nameEl = document.getElementById('activeLandingPageName');
+                    const urlEl = document.getElementById('activeLandingPageUrl');
+                    const dnsBtn = document.getElementById('downloadDnsZone');
+
+                    if (data.active_landing_page) {
+                        nameEl.textContent = data.active_landing_page.name;
+                        urlEl.textContent = data.active_landing_page.url_path;
+                        dnsBtn.style.display = 'inline-block';
+                        banner.classList.add('has-active');
+
+                        // Mark the active card
+                        const activePageId = data.active_landing_page.id;
+                        const activateButtons = document.querySelectorAll('.activate-btn');
+                        activateButtons.forEach(btn => {
+                            const pageId = parseInt(btn.getAttribute('data-page-id'));
+                            if (pageId === activePageId) {
+                                btn.classList.add('active');
+                                btn.disabled = true;
+                                btn.title = 'Currently Active';
+                                btn.querySelector('.activate-icon').innerHTML = '&#10003;';
+                                // Show active badge
+                                const badge = document.getElementById(`activeBadge${pageId}`);
+                                if (badge) badge.style.display = 'block';
+                            }
+                        });
+                    } else {
+                        nameEl.textContent = 'None';
+                        urlEl.textContent = '';
+                        dnsBtn.style.display = 'none';
+                        banner.classList.remove('has-active');
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error loading active landing page:', error);
+            });
+    }
+
+    // Call on page load
+    loadActiveLandingPage();
+
+    // DNS Zone download
+    const dnsZoneBtn = document.getElementById('downloadDnsZone');
+    if (dnsZoneBtn) {
+        dnsZoneBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            window.location.href = '/landing-pages/dns-zone';
+        });
+    }
+
+    // Activate button handlers
+    document.querySelectorAll('.activate-btn:not([disabled])').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const pageId = this.getAttribute('data-page-id');
+            const card = this.closest('.landing-page-card');
+            const pageName = card.querySelector('h3').textContent;
+
+            if (confirm(`Activate "${pageName}" as the active landing page?\n\nThis will generate a DNS zone entry file for the phishing domain.`)) {
+                activateLandingPage(pageId);
+            }
+        });
+    });
+
+    function activateLandingPage(pageId) {
+        const formData = new FormData();
+
+        fetch(`/landing-pages/${pageId}/activate`, {
+            method: 'POST',
+            body: formData,
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    // Reload page after a short delay to show updated state
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    showNotification(data.message || 'Failed to activate landing page', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Failed to activate landing page', 'error');
+            });
+    }
+
+    // Notification system
+    function showNotification(message, type = 'success') {
+        const container = document.getElementById('notificationContainer');
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+
+        const icon = type === 'success' ? '&#10003;' : '&#10005;';
+
+        notification.innerHTML = `
+            <span class="notification-icon">${icon}</span>
+            <span class="notification-message">${message}</span>
+        `;
+
+        container.appendChild(notification);
+
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateX(400px)';
+            setTimeout(() => notification.remove(), 300);
+        }, 5000);
+    }
+});

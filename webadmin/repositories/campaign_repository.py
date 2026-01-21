@@ -378,6 +378,7 @@ class CampaignRepository(BaseRepository):
         description,
         email_template_id,
         target_list_ids,
+        landing_page_id=None,
         start_date=None,
         status="draft",
         created_by_id=None,
@@ -393,6 +394,7 @@ class CampaignRepository(BaseRepository):
             description: Campaign description
             email_template_id: ID of email template to use
             target_list_ids: List of target list IDs to include
+            landing_page_id: ID of landing page to use (optional)
             start_date: Campaign start date (optional)
             status: Campaign status (default: 'draft')
             created_by_id: ID of admin user creating the campaign (optional)
@@ -409,6 +411,7 @@ class CampaignRepository(BaseRepository):
                 name=name,
                 description=description,
                 email_template_id=email_template_id,
+                landing_page_id=landing_page_id,
                 created_by_id=created_by_id,
                 status=status,
                 min_email_delay=min_email_delay,

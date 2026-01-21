@@ -138,6 +138,7 @@ def create_app(config=None):
     from routes.auth import auth_bp
     from routes.campaigns import campaigns_bp
     from routes.email_templates import templates_bp
+    from routes.landing_pages import landing_pages_bp
     from routes.targets import targets_bp
     from routes.analytics import analytics_bp
     from routes.settings import settings_bp
@@ -147,6 +148,7 @@ def create_app(config=None):
     app.register_blueprint(auth_bp)
     app.register_blueprint(campaigns_bp)
     app.register_blueprint(templates_bp)
+    app.register_blueprint(landing_pages_bp)
     app.register_blueprint(targets_bp)
     app.register_blueprint(analytics_bp)
     app.register_blueprint(settings_bp)
@@ -225,6 +227,34 @@ def create_app(config=None):
             status["redis"] = "not configured"
 
         return status, 200
+
+    # Phishing preview proxy - forwards requests to phishing server
+    @app.route("/phishing-preview/", defaults={"path": ""})
+    @app.route("/phishing-preview/<path:path>")
+    def phishing_preview_proxy(path):
+        """Proxy preview requests to phishing server"""
+        import requests
+        from flask import Response, request as flask_request
+
+        # Forward to phishing server
+        phishing_url = f"http://phishly-phishing:8000/preview/{path}"
+
+        # Copy query parameters
+        if flask_request.query_string:
+            phishing_url += f"?{flask_request.query_string.decode()}"
+
+        try:
+            # Forward the request
+            resp = requests.get(phishing_url, stream=True, timeout=10)
+
+            # Create response with same status code and content type
+            return Response(
+                resp.content,
+                status=resp.status_code,
+                content_type=resp.headers.get('Content-Type', 'text/html')
+            )
+        except Exception as e:
+            return f"Preview error: {str(e)}", 500
 
     return app
 

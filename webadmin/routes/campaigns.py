@@ -18,6 +18,7 @@ from utils.cache_manager import (
     clear_campaign_cache,
     generate_task_id,
 )
+from utils.campaign_deployer import deploy_landing_page_to_campaign, cleanup_campaign_deployment
 
 campaigns_bp = Blueprint("campaigns", __name__)
 
@@ -36,16 +37,84 @@ celery_app = Celery(
 )
 
 
+def revoke_campaign_tasks(campaign_id):
+    """
+    Revoke all pending Celery tasks for a campaign.
+    Updates EmailJob status to 'revoked' and cancels the Celery tasks.
+
+    Args:
+        campaign_id: The campaign ID to revoke tasks for
+
+    Returns:
+        int: Number of tasks revoked
+    """
+    revoked_count = 0
+
+    try:
+        # Get all campaign targets for this campaign
+        campaign_targets = db.session.query(CampaignTarget).filter_by(
+            campaign_id=campaign_id
+        ).all()
+
+        campaign_target_ids = [ct.id for ct in campaign_targets]
+
+        if not campaign_target_ids:
+            return 0
+
+        # Get all pending/queued email jobs with Celery task IDs
+        pending_jobs = db.session.query(EmailJob).filter(
+            EmailJob.campaign_target_id.in_(campaign_target_ids),
+            EmailJob.status.in_(["pending", "queued"]),
+            EmailJob.celery_task_id.isnot(None)
+        ).all()
+
+        for job in pending_jobs:
+            try:
+                # Revoke the Celery task (terminate=True forces immediate stop)
+                celery_app.control.revoke(job.celery_task_id, terminate=True)
+                job.status = "revoked"
+                job.error_message = "Campaign paused or deleted"
+                revoked_count += 1
+                logger.debug(f"Revoked task {job.celery_task_id}")
+            except Exception as e:
+                logger.warning(f"Failed to revoke task {job.celery_task_id}: {e}")
+
+        db.session.commit()
+
+    except Exception as e:
+        logger.error(f"Error revoking tasks for campaign {campaign_id}: {e}")
+        db.session.rollback()
+
+    return revoked_count
+
+
 @campaigns_bp.route("/campaigns")
 @login_required
 def index():
     """Campaigns overview page"""
+    from repositories.active_configuration_repository import ActiveConfigurationRepository
+    from db.models import LandingPage
+
     campaigns = campaign_repo.get_all_campaigns()
     templates = campaign_repo.get_email_templates()
     groups = campaign_repo.get_target_groups()
 
+    # Get landing pages for dropdown
+    landing_pages = db.session.query(LandingPage).order_by(LandingPage.name).all()
+
+    # Get active configuration
+    active_config = ActiveConfigurationRepository.get_active_configuration()
+    active_landing_page_id = active_config.active_landing_page_id if active_config else None
+    has_running_campaigns = ActiveConfigurationRepository.has_running_campaigns()
+
     return render_template(
-        "campaigns.html", campaigns=campaigns, templates=templates, groups=groups
+        "campaigns.html",
+        campaigns=campaigns,
+        templates=templates,
+        groups=groups,
+        landing_pages=landing_pages,
+        active_landing_page_id=active_landing_page_id,
+        has_running_campaigns=has_running_campaigns,
     )
 
 
@@ -109,10 +178,35 @@ def create():
             return jsonify({"success": False, "message": "Invalid scheduled launch date/time"}), 400
 
     # Create campaign in database
+    # Handle landing page selection
+    from repositories.active_configuration_repository import ActiveConfigurationRepository
+
+    landing_page_id = request.form.get("landing_page_id")
+
+    # Validate landing page selection
+    if landing_page_id:
+        landing_page_id = int(landing_page_id)
+
+        # If campaigns are running, must use the active landing page
+        if ActiveConfigurationRepository.has_running_campaigns():
+            active_id = ActiveConfigurationRepository.get_active_landing_page_id()
+            if landing_page_id != active_id:
+                return jsonify({
+                    "success": False,
+                    "message": "When campaigns are running, you must use the currently active landing page"
+                }), 400
+        else:
+            # No campaigns running - this landing page becomes active
+            ActiveConfigurationRepository.activate_landing_page(
+                landing_page_id=landing_page_id,
+                user_id=current_user.id if hasattr(current_user, "id") else None,
+            )
+
     campaign = campaign_repo.create_campaign(
         name=campaign_name,
         description=description,
         email_template_id=template_id,
+        landing_page_id=landing_page_id if landing_page_id else None,
         target_list_ids=group_ids,
         status="scheduled" if scheduled_launch_dt else "draft",
         created_by_id=current_user.id if hasattr(current_user, "id") else None,
@@ -160,16 +254,28 @@ def launch_campaign(campaign_id):
         if not campaign_targets:
             return jsonify({"success": False, "message": "Campaign has no targets"}), 400
 
-        # Cache the landing page for fast serving
+        # Deploy landing page template to campaign-specific directory
         landing_page = campaign.landing_page
         if landing_page:
-            cache_result = cache_landing_page(campaign_id, landing_page)
-            if cache_result:
-                logger.info(f"Cached landing page for campaign {campaign_id}")
+            # NEW: Deploy template if template_path is set
+            if landing_page.template_path:
+                success, message, deployed_path = deploy_landing_page_to_campaign(
+                    campaign_id, landing_page.template_path
+                )
+                if success:
+                    logger.info(f"Deployed template '{landing_page.template_path}' to campaign {campaign_id}: {deployed_path}")
+                else:
+                    logger.error(f"Failed to deploy template for campaign {campaign_id}: {message}")
+                    return jsonify({"success": False, "message": f"Template deployment failed: {message}"}), 500
             else:
-                logger.warning(f"Failed to cache landing page for campaign {campaign_id}")
+                # LEGACY: Use old cache system for DB-stored landing pages
+                cache_result = cache_landing_page(campaign_id, landing_page)
+                if cache_result:
+                    logger.info(f"Cached landing page for campaign {campaign_id}")
+                else:
+                    logger.warning(f"Failed to cache landing page for campaign {campaign_id}")
         else:
-            logger.warning(f"Campaign {campaign_id} has no landing page to cache")
+            logger.warning(f"Campaign {campaign_id} has no landing page")
 
         # Update campaign status
         campaign.status = "active"
@@ -200,17 +306,6 @@ def launch_campaign(campaign_id):
             scheduled_time = datetime.utcnow() + timedelta(seconds=cumulative_delay)
             cumulative_delay += delay_seconds
 
-            # Create email job record
-            email_job = EmailJob(
-                campaign_target_id=campaign_target.id,
-                status="queued",
-                scheduled_at=scheduled_time,
-                delay_seconds=delay_seconds,
-            )
-            db.session.add(email_job)
-            db.session.flush()  # Get the email_job.id
-            jobs_created += 1
-
             # Trigger Celery task to send email
             try:
                 # Get target details
@@ -220,13 +315,24 @@ def launch_campaign(campaign_id):
                     # Generate campaign-specific task ID
                     task_id = generate_task_id(campaign_id, target.id)
 
+                    # Create email job record with task ID
+                    email_job = EmailJob(
+                        campaign_target_id=campaign_target.id,
+                        celery_task_id=task_id,
+                        status="queued",
+                        scheduled_at=scheduled_time,
+                        delay_seconds=delay_seconds,
+                    )
+                    db.session.add(email_job)
+                    db.session.flush()  # Get the email_job.id
+                    jobs_created += 1
+
                     # Queue the task asynchronously with custom task_id and countdown
                     task = celery_app.send_task(
                         "tasks.send_phishing_email",
                         args=[campaign_id, target.id],
                         kwargs={},
                         task_id=task_id,
-                        queue="default",
                         countdown=cumulative_delay - delay_seconds,  # Delay before executing
                     )
 
@@ -239,13 +345,23 @@ def launch_campaign(campaign_id):
                     logger.info(log_msg)
                 else:
                     logger.warning(f"Target {campaign_target.target_id} not found, skipping")
-                    email_job.status = "failed"
-                    email_job.error_message = "Target not found"
+                    # Create a failed job record
+                    email_job = EmailJob(
+                        campaign_target_id=campaign_target.id,
+                        status="failed",
+                        error_message="Target not found",
+                    )
+                    db.session.add(email_job)
 
             except Exception as task_error:
                 logger.error(f"Error queuing Celery task: {task_error}")
-                email_job.status = "failed"
-                email_job.error_message = str(task_error)
+                # Create a failed job record
+                email_job = EmailJob(
+                    campaign_target_id=campaign_target.id,
+                    status="failed",
+                    error_message=str(task_error),
+                )
+                db.session.add(email_job)
 
         db.session.commit()
 
@@ -272,7 +388,7 @@ def launch_campaign(campaign_id):
 @login_required
 def pause_campaign(campaign_id):
     """
-    Pause an active campaign
+    Pause an active campaign and revoke pending email tasks
     """
     try:
         campaign = db.session.get(Campaign, campaign_id)
@@ -286,11 +402,18 @@ def pause_campaign(campaign_id):
                 400,
             )
 
+        # Revoke pending Celery tasks
+        revoked_count = revoke_campaign_tasks(campaign_id)
+        logger.info(f"Revoked {revoked_count} pending tasks for campaign {campaign_id}")
+
         campaign.status = "paused"
         campaign.completed_date = datetime.utcnow()
         db.session.commit()
 
-        return jsonify({"success": True, "message": "Campaign paused successfully"})
+        return jsonify({
+            "success": True,
+            "message": f"Campaign paused successfully. {revoked_count} pending emails cancelled."
+        })
 
     except Exception as e:
         db.session.rollback()
@@ -301,7 +424,7 @@ def pause_campaign(campaign_id):
 @login_required
 def delete_campaign(campaign_id):
     """
-    Delete a campaign (only if in draft status)
+    Delete a campaign and revoke any pending Celery tasks
     """
     try:
         campaign = db.session.get(Campaign, campaign_id)
@@ -319,8 +442,20 @@ def delete_campaign(campaign_id):
 
         campaign_name = campaign.name
 
-        # Clear cached landing pages
+        # Revoke any pending Celery tasks (in case campaign was paused mid-send)
+        revoked_count = revoke_campaign_tasks(campaign_id)
+        if revoked_count > 0:
+            logger.info(f"Revoked {revoked_count} pending tasks for deleted campaign {campaign_id}")
+
+        # Clear cached landing pages (legacy)
         clear_campaign_cache(campaign_id)
+
+        # NEW: Clean up campaign deployment
+        cleanup_success, cleanup_msg = cleanup_campaign_deployment(campaign_id)
+        if cleanup_success:
+            logger.info(f"Cleaned up deployment for campaign {campaign_id}")
+        else:
+            logger.warning(f"Failed to clean up deployment for campaign {campaign_id}: {cleanup_msg}")
 
         db.session.delete(campaign)
         db.session.commit()

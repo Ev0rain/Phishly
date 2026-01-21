@@ -1,5 +1,5 @@
 """
-Templates Repository - Real database implementation with hybrid storage
+templates Repository - Real database implementation with hybrid storage
 
 Metadata stored in database, HTML files stored on disk
 """
@@ -19,7 +19,7 @@ class TemplatesRepository(BaseRepository):
 
     # Directory where template HTML files are stored
     TEMPLATES_DIR = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "Templates", "email_templates"
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "templates", "email_templates"
     )
 
     @staticmethod
@@ -315,3 +315,123 @@ class TemplatesRepository(BaseRepository):
             "microsoft",
             "google",
         ]
+
+    @staticmethod
+    def delete_template(template_id):
+        """
+        Delete a template (from both database and disk)
+
+        Args:
+            template_id: ID of the template to delete
+
+        Returns:
+            tuple: (success: bool, message: str)
+        """
+        try:
+            template = (
+                db.session.query(EmailTemplate)
+                .filter(EmailTemplate.id == template_id)
+                .first()
+            )
+
+            if not template:
+                return False, "Template not found"
+
+            # Delete the HTML file from disk
+            filename = f"{template_id}.html"
+            filepath = os.path.join(TemplatesRepository.TEMPLATES_DIR, filename)
+
+            if os.path.exists(filepath):
+                os.remove(filepath)
+                logger.info(f"Deleted template file: {filepath}")
+
+            # Delete from database
+            db.session.delete(template)
+            db.session.commit()
+
+            return True, "Template deleted successfully"
+
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error deleting template: {e}")
+            return False, f"Error deleting template: {str(e)}"
+
+    @staticmethod
+    def list_available_template_files():
+        """
+        List all available email template .html files in templates/email_templates/
+
+        Returns:
+            List of template file dictionaries with keys:
+            - filename: Template filename (e.g., "01_urgent_password_reset.html")
+            - name: Display name (filename without extension and prefix)
+            - path: Full path to template file
+            - size_kb: File size in kilobytes
+        """
+        templates = []
+
+        try:
+            templates_dir = TemplatesRepository.TEMPLATES_DIR
+
+            if not os.path.exists(templates_dir):
+                logger.warning(f"Templates directory not found: {templates_dir}")
+                return templates
+
+            # Scan for .html files
+            for filename in os.listdir(templates_dir):
+                if filename.endswith('.html') and not filename.endswith('.j2'):
+                    filepath = os.path.join(templates_dir, filename)
+
+                    # Get file size
+                    size_bytes = os.path.getsize(filepath)
+                    size_kb = round(size_bytes / 1024, 2)
+
+                    # Create display name (remove number prefix and .html extension)
+                    # e.g., "01_urgent_password_reset.html" -> "Urgent Password Reset"
+                    display_name = filename.replace('.html', '')
+                    # Remove number prefix if present (e.g., "01_")
+                    if '_' in display_name and display_name.split('_')[0].isdigit():
+                        display_name = '_'.join(display_name.split('_')[1:])
+                    # Replace underscores with spaces and title case
+                    display_name = display_name.replace('_', ' ').title()
+
+                    templates.append({
+                        'filename': filename,
+                        'name': display_name,
+                        'path': filepath,
+                        'size_kb': size_kb
+                    })
+
+            # Sort by filename
+            templates.sort(key=lambda t: t['filename'])
+
+        except Exception as e:
+            logger.error(f"Error listing template files: {e}", exc_info=True)
+
+        return templates
+
+    @staticmethod
+    def get_template_file_content(filename):
+        """
+        Read the content of a template file
+
+        Args:
+            filename: Template filename (e.g., "01_urgent_password_reset.html")
+
+        Returns:
+            tuple: (success: bool, content: str or error message)
+        """
+        try:
+            filepath = os.path.join(TemplatesRepository.TEMPLATES_DIR, filename)
+
+            if not os.path.exists(filepath):
+                return False, f"Template file not found: {filename}"
+
+            with open(filepath, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            return True, content
+
+        except Exception as e:
+            logger.error(f"Error reading template file {filename}: {e}")
+            return False, f"Error reading template file: {str(e)}"

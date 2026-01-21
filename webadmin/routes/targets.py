@@ -32,6 +32,11 @@ def create():
     if request.method == "POST":
         import json
 
+        # Check if this is an AJAX request (expects JSON response)
+        is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or \
+                  request.content_type == "multipart/form-data" or \
+                  request.form.get("targets_json")
+
         # Handle form submission
         name = request.form.get("name", "").strip()
         description = request.form.get("description", "").strip()
@@ -76,11 +81,15 @@ def create():
                         "department": target.get("department", "").strip(),
                     })
 
-                if errors:
+                if errors and is_ajax:
+                    return jsonify({"success": False, "message": "; ".join(errors)}), 400
+                elif errors:
                     for error in errors:
                         flash(error, "warning")
 
             except json.JSONDecodeError as e:
+                if is_ajax:
+                    return jsonify({"success": False, "message": f"Error parsing targets data: {str(e)}"}), 400
                 flash(f"Error parsing targets data: {str(e)}", "error")
                 return redirect(url_for("targets.index") + "#create")
         else:
@@ -102,10 +111,14 @@ def create():
             ]
 
         if not name:
+            if is_ajax:
+                return jsonify({"success": False, "message": "Group name is required"}), 400
             flash("Group name is required", "error")
             return redirect(url_for("targets.index") + "#create")
 
         if not targets_list:
+            if is_ajax:
+                return jsonify({"success": False, "message": "At least one valid target is required"}), 400
             flash("At least one valid target is required", "error")
             return redirect(url_for("targets.index") + "#create")
 
@@ -118,8 +131,16 @@ def create():
         )
 
         if not result:
+            if is_ajax:
+                return jsonify({"success": False, "message": "Error creating target group"}), 500
             flash("Error creating target group", "error")
             return redirect(url_for("targets.index") + "#create")
+
+        if is_ajax:
+            return jsonify({
+                "success": True,
+                "message": f"Target group '{name}' created successfully with {len(targets_list)} targets"
+            })
 
         flash(
             f"Target group '{name}' created successfully with {len(targets_list)} targets",
@@ -245,10 +266,12 @@ def delete_group(group_id):
     return redirect(url_for("targets.index"))
 
 
-@targets_bp.route("/targets/<int:group_id>/edit", methods=["POST"])
+@targets_bp.route("/targets/<int:group_id>/update", methods=["POST"])
 @login_required
-def edit_group(group_id):
-    """Edit a target group (name, description, and members)"""
+def update_group(group_id):
+    """Update a target group with spreadsheet data (name, description, and members)"""
+    import json
+
     group = targets_repo.get_group_by_id(group_id)
 
     if not group:
@@ -257,28 +280,19 @@ def edit_group(group_id):
     # Get form data
     name = request.form.get("name", "").strip()
     description = request.form.get("description", "").strip()
-    targets_text = request.form.get("targets", "").strip()
+    targets_json = request.form.get("targets_json", "").strip()
 
     if not name:
         return jsonify({"success": False, "message": "Group name is required"}), 400
 
-    # Parse email list
-    email_list = [email.strip() for email in targets_text.split("\n") if email.strip()]
+    # Parse JSON targets list
+    try:
+        targets_list = json.loads(targets_json) if targets_json else []
+    except json.JSONDecodeError:
+        return jsonify({"success": False, "message": "Invalid targets data format"}), 400
 
-    if not email_list:
-        return jsonify({"success": False, "message": "At least one target email is required"}), 400
-
-    # Convert email strings to target dictionaries (required format for repository)
-    targets_list = [
-        {
-            "email": email,
-            "first_name": "",
-            "last_name": "",
-            "position": "",
-            "department": "",
-        }
-        for email in email_list
-    ]
+    if not targets_list:
+        return jsonify({"success": False, "message": "At least one target is required"}), 400
 
     # Update database
     try:
@@ -289,10 +303,17 @@ def edit_group(group_id):
             return jsonify(
                 {
                     "success": True,
-                    "message": f"Target group '{name}' updated successfully with {len(email_list)} members",
+                    "message": f"Target group '{name}' updated successfully with {len(targets_list)} members",
                 }
             )
         else:
             return jsonify({"success": False, "message": "Error updating target group"}), 500
     except Exception as e:
         return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500
+
+
+@targets_bp.route("/targets/<int:group_id>/edit", methods=["POST"])
+@login_required
+def edit_group(group_id):
+    """Legacy edit endpoint - redirects to update"""
+    return update_group(group_id)

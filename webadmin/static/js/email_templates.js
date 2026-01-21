@@ -1,5 +1,5 @@
 /**
- * Email Templates Page JavaScript
+ * Email templates Page JavaScript
  * Handles template preview, import modal, and file upload
  */
 
@@ -55,7 +55,62 @@ document.addEventListener('DOMContentLoaded', function () {
 
     importBtn.addEventListener('click', function () {
         importModal.classList.add('show');
+        loadAvailableTemplateFiles();
     });
+
+    // Load available template files from filesystem
+    function loadAvailableTemplateFiles() {
+        const templateSelect = document.getElementById('templateFile');
+
+        fetch('/templates/available-files')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    templateSelect.innerHTML = '<option value="">-- Select a template file --</option>';
+                    data.templates.forEach(template => {
+                        const option = document.createElement('option');
+                        option.value = template.filename;
+                        option.textContent = `${template.name} (${template.size_kb} KB)`;
+                        templateSelect.appendChild(option);
+                    });
+                } else {
+                    templateSelect.innerHTML = '<option value="">-- No templates available --</option>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading template files:', error);
+                templateSelect.innerHTML = '<option value="">-- Error loading templates --</option>';
+            });
+    }
+
+    // Template file selection - load preview
+    const templateFileSelect = document.getElementById('templateFile');
+    if (templateFileSelect) {
+        templateFileSelect.addEventListener('change', function () {
+            const filename = this.value;
+            const previewDiv = document.getElementById('templatePreview');
+            const previewContent = document.getElementById('templatePreviewContent');
+
+            if (filename) {
+                // Load template content for preview
+                fetch(`/templates/file/${encodeURIComponent(filename)}/content`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            previewDiv.style.display = 'block';
+                            // Show truncated preview (first 500 characters)
+                            const truncated = data.content.substring(0, 500);
+                            previewContent.textContent = truncated + '...';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading template content:', error);
+                    });
+            } else {
+                previewDiv.style.display = 'none';
+            }
+        });
+    }
 
     function closeImportModal() {
         importModal.classList.remove('show');
@@ -113,11 +168,13 @@ document.addEventListener('DOMContentLoaded', function () {
         fileUploadArea.style.background = '';
 
         const file = e.dataTransfer.files[0];
-        if (file && file.name.endsWith('.html')) {
+        const validExtensions = ['.html', '.html.j2', '.j2'];
+        const isValid = validExtensions.some(ext => file && file.name.endsWith(ext));
+        if (isValid) {
             fileInput.files = e.dataTransfer.files;
             showFileSelected(file.name);
         } else {
-            showNotification('Only HTML files are allowed', 'error');
+            showNotification('Only HTML and Jinja2 template files are allowed (.html, .html.j2)', 'error');
         }
     });
 
@@ -222,6 +279,47 @@ document.addEventListener('DOMContentLoaded', function () {
             closePreviewModal();
         }
     });
+
+    // === Delete Template Handling ===
+
+    const deleteButtons = document.querySelectorAll('.delete-btn');
+
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', function (e) {
+            e.stopPropagation(); // Prevent card click
+            const templateId = this.getAttribute('data-template-id');
+            const card = this.closest('.template-card');
+            const templateName = card.querySelector('h3').textContent;
+
+            if (confirm(`Are you sure you want to delete the template "${templateName}"?\n\nThis action cannot be undone.`)) {
+                deleteTemplate(templateId, card);
+            }
+        });
+    });
+
+    function deleteTemplate(templateId, cardElement) {
+        fetch(`/templates/${templateId}/delete`, {
+            method: 'POST',
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    // Animate removal
+                    cardElement.style.opacity = '0';
+                    cardElement.style.transform = 'scale(0.9)';
+                    setTimeout(() => {
+                        cardElement.remove();
+                    }, 300);
+                } else {
+                    showNotification(data.message || 'Failed to delete template', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Failed to delete template. Please try again.', 'error');
+            });
+    }
 
     // === Notification System ===
 
