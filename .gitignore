@@ -30,6 +30,11 @@ Thumbs.db!/.python-version
 # Note: /templates/ (root-level with leading slash) ignores only the root templates directory
 # Flask UI templates in webadmin/templates/ remain tracked as they are not in the root
 /templates/
-/webadmin/dns_zones/
+
+# DNS zones - ignore all files except .gitkeep
+/webadmin/dns_zones/*
+
+# Email templates imported - ignore HTML files but keep .gitkeep
 /webadmin/email_templates_imported/*.html
 /webadmin/email_templates_imported/*.htm
+

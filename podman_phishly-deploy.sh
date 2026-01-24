@@ -12,8 +12,17 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Step 0: Initialize directory structure
+echo "📋 Step 0/5: Initializing directory structure..."
+if [ -f "./init_directories.sh" ]; then
+    ./init_directories.sh
+else
+    echo -e "${YELLOW}⚠️  init_directories.sh not found, skipping directory initialization${NC}"
+fi
+echo ""
+
 # Step 1: Check Podman
-echo "📋 Step 1/5: Checking Podman..."
+echo "📋 Step 1/6: Checking Podman..."
 if ! command -v podman &> /dev/null; then
     echo "❌ Podman not found. Please install Podman first."
     exit 1
@@ -26,19 +35,19 @@ echo -e "${GREEN}✅ Podman and Podman Compose found${NC}"
 echo ""
 
 # Step 2: Start Services (suppress output to avoid credential leaks)
-echo "📋 Step 2/5: Starting all services..."
+echo "📋 Step 2/6: Starting all services..."
 podman-compose up -d >/dev/null 2>&1
 echo -e "${GREEN}✅ Services started${NC}"
 echo ""
 
 # Step 3: Wait for services to initialize
-echo "📋 Step 3/5: Waiting for services to initialize (30 seconds)..."
+echo "📋 Step 3/6: Waiting for services to initialize (30 seconds)..."
 sleep 30
 echo -e "${GREEN}✅ Services initialized${NC}"
 echo ""
 
 # Step 4: Initialize database (create tables + admin user)
-echo "📋 Step 4/5: Initializing database..."
+echo "📋 Step 4/6: Initializing database..."
 podman exec phishly-webadmin python -c "
 import sys
 import os
@@ -94,7 +103,7 @@ echo -e "${GREEN}✅ Database initialized${NC}"
 echo ""
 
 # Step 5: Restart webadmin to clear any session issues
-echo "📋 Step 5/5: Restarting webadmin (clears Redis sessions)..."
+echo "📋 Step 5/6: Restarting webadmin (clears Redis sessions)..."
 podman-compose restart webadmin >/dev/null 2>&1
 sleep 5
 echo -e "${GREEN}✅ WebAdmin restarted with clean sessions${NC}"

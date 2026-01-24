@@ -183,6 +183,7 @@ services:
       dockerfile: Dockerfile
     container_name: phishly-phishing
     restart: unless-stopped
+    user: "1000:1000"  # Run as host user to prevent root ownership of files
 
     expose:
       - "8000"

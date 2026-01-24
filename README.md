@@ -94,6 +94,24 @@ Choose your container runtime:
 
 ## Deployment
 
+### Prerequisites
+
+#### One-Time Directory Setup
+
+Before first deployment, you may need to fix directory ownership if any directories were previously created as root:
+
+```bash
+# Check if directories need fixing
+ls -la webadmin/email_templates_imported webadmin/dns_zones
+
+# If any show "root" as owner, run the fix script:
+sudo ./fix_directory_ownership.sh
+```
+
+This ensures containers running as non-root users (UID 1000) can write to required directories.
+
+**Note:** This is only needed once, or if you manually created directories as root. Normal deployments handle directory creation automatically.
+
 ### Deployment Scripts
 
 Phishly includes automated deployment scripts for both Docker and Podman:
