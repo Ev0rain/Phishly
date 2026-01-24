@@ -382,6 +382,37 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    // Complete button handlers
+    document.querySelectorAll('.btn-complete').forEach(button => {
+        button.addEventListener('click', function (e) {
+            const campaignId = this.dataset.campaignId;
+            const row = this.closest('tr');
+            const campaignName = row.querySelector('.campaign-name strong').textContent;
+
+            if (confirm(`Mark campaign "${campaignName}" as completed?\n\nThis will deactivate the landing page if no other campaigns are using it.`)) {
+                fetch(`/campaigns/${campaignId}/complete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification('Campaign marked as completed!', 'success');
+                            setTimeout(() => window.location.reload(), 1500);
+                        } else {
+                            showNotification(data.message || 'Failed to complete campaign', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showNotification('Error completing campaign', 'error');
+                    });
+            }
+        });
+    });
+
     // Delete button handlers
     document.querySelectorAll('.btn-delete').forEach(button => {
         button.addEventListener('click', function (e) {

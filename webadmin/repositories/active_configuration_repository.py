@@ -270,6 +270,21 @@ class ActiveConfigurationRepository(BaseRepository):
                 Campaign.status.in_(['active', 'paused'])
             ).first()
 
+            # Build URLs for accessing the deployed landing page
+            url_path = landing_page.url_path or "/"
+
+            # Production URL (if domain configured) - HTTPS with proper domain
+            production_url = None
+            if config.phishing_domain:
+                production_url = f"https://{config.phishing_domain}{url_path}"
+            elif config.public_ip:
+                # Use HTTP for IP-based access (no SSL cert for IPs)
+                production_url = f"http://{config.public_ip}{url_path}"
+
+            # Local testing URLs
+            localhost_http_url = f"http://localhost{url_path}"  # Through Caddy on port 80 (HTTP)
+            proxy_url = f"/phishing{url_path}"  # Through webadmin proxy (HTTP)
+
             return {
                 'config': config,
                 'landing_page': landing_page,
@@ -278,6 +293,10 @@ class ActiveConfigurationRepository(BaseRepository):
                 'phishing_domain': config.phishing_domain,
                 'public_ip': config.public_ip,
                 'activated_at': config.activated_at,
+                'url_path': url_path,
+                'production_url': production_url,
+                'localhost_http_url': localhost_http_url,
+                'proxy_url': proxy_url,
             }
 
         except Exception as e:

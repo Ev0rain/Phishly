@@ -3,9 +3,12 @@ Landing Pages Blueprint
 Handles landing page management - create, edit, preview, delete
 """
 
+import logging
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 from repositories.landing_pages_repository import LandingPagesRepository
+
+logger = logging.getLogger(__name__)
 
 landing_pages_bp = Blueprint("landing_pages", __name__)
 landing_pages_repo = LandingPagesRepository()
@@ -37,7 +40,6 @@ def index():
 def preview_landing_page(landing_page_id):
     """Deploy landing page to preview instance"""
     from utils.campaign_deployer import deploy_preview
-    import os
 
     landing_page = landing_pages_repo.get_landing_page_by_id(landing_page_id)
 
@@ -46,10 +48,18 @@ def preview_landing_page(landing_page_id):
 
     template_path = landing_page.get("template_path")
     if not template_path:
-        return jsonify({
-            "success": False,
-            "message": "This landing page uses legacy database storage and cannot be previewed"
-        }), 400
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": (
+                        "This landing page uses legacy database storage "
+                        "and cannot be previewed"
+                    ),
+                }
+            ),
+            400,
+        )
 
     # Deploy to preview
     success, message, preview_url = deploy_preview(template_path)
@@ -58,12 +68,14 @@ def preview_landing_page(landing_page_id):
         # Preview is proxied through webadmin at /phishing-preview/
         full_preview_url = "/phishing-preview/"
 
-        return jsonify({
-            "success": True,
-            "message": message,
-            "preview_url": full_preview_url,
-            "template_path": template_path,
-        })
+        return jsonify(
+            {
+                "success": True,
+                "message": message,
+                "preview_url": full_preview_url,
+                "template_path": template_path,
+            }
+        )
     else:
         return jsonify({"success": False, "message": message}), 500
 
@@ -77,10 +89,12 @@ def get_landing_page_details(landing_page_id):
     if not landing_page:
         return jsonify({"success": False, "error": "Landing page not found"}), 404
 
-    return jsonify({
-        "success": True,
-        "landing_pages": landing_page,
-    })
+    return jsonify(
+        {
+            "success": True,
+            "landing_pages": landing_page,
+        }
+    )
 
 
 @landing_pages_bp.route("/landing-pages/create", methods=["POST"])
@@ -114,15 +128,26 @@ def create_landing_page():
     if not url_path:
         return jsonify({"success": False, "message": "URL path is required"}), 400
 
+    if not domain:
+        return jsonify({"success": False, "message": "Domain is required"}), 400
+
     # NEW: Require either template_path OR html_content
     if not template_path and not html_content:
-        return jsonify({"success": False, "message": "Either template or HTML content is required"}), 400
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Either template or HTML content is required",
+                }
+            ),
+            400,
+        )
 
     # Create landing page
     success, message, landing_page_id = landing_pages_repo.create_landing_page(
         name=name,
         url_path=url_path,
-        domain=domain or None,
+        domain=domain,  # Required field
         template_path=template_path or None,  # NEW: Template reference
         html_content=html_content or None,  # Legacy: DB storage
         css_content=css_content or None,
@@ -134,11 +159,13 @@ def create_landing_page():
     )
 
     if success:
-        return jsonify({
-            "success": True,
-            "message": f"Landing page '{name}' created successfully",
-            "landing_page_id": landing_page_id,
-        })
+        return jsonify(
+            {
+                "success": True,
+                "message": f"Landing page '{name}' created successfully",
+                "landing_page_id": landing_page_id,
+            }
+        )
     else:
         return jsonify({"success": False, "message": message}), 400
 
@@ -200,10 +227,9 @@ def delete_landing_page(landing_page_id):
     success, message = landing_pages_repo.delete_landing_page(landing_page_id)
 
     if success:
-        return jsonify({
-            "success": True,
-            "message": f"Landing page '{landing_page_name}' deleted successfully"
-        })
+        return jsonify(
+            {"success": True, "message": f"Landing page '{landing_page_name}' deleted successfully"}
+        )
     else:
         return jsonify({"success": False, "message": message}), 400
 
@@ -218,18 +244,24 @@ def get_active_landing_page():
     active_page = ActiveConfigurationRepository.get_active_landing_page()
     running_campaigns = ActiveConfigurationRepository.get_running_campaigns_count()
 
-    return jsonify({
-        "success": True,
-        "active_landing_page": {
-            "id": active_page.id,
-            "name": active_page.name,
-            "url_path": active_page.url_path,
-        } if active_page else None,
-        "activated_at": config.activated_at.isoformat() if config and config.activated_at else None,
-        "phishing_domain": config.phishing_domain if config else None,
-        "running_campaigns": running_campaigns,
-        "can_change": running_campaigns == 0,
-    })
+    return jsonify(
+        {
+            "success": True,
+            "active_landing_page": {
+                "id": active_page.id,
+                "name": active_page.name,
+                "url_path": active_page.url_path,
+            }
+            if active_page
+            else None,
+            "activated_at": config.activated_at.isoformat()
+            if config and config.activated_at
+            else None,
+            "phishing_domain": config.phishing_domain if config else None,
+            "running_campaigns": running_campaigns,
+            "can_change": running_campaigns == 0,
+        }
+    )
 
 
 @landing_pages_bp.route("/landing-pages/<int:landing_page_id>/activate", methods=["POST"])
@@ -244,10 +276,15 @@ def activate_landing_page(landing_page_id):
     if ActiveConfigurationRepository.has_running_campaigns():
         current_active = ActiveConfigurationRepository.get_active_landing_page_id()
         if current_active != landing_page_id:
-            return jsonify({
-                "success": False,
-                "message": "Cannot change active landing page while campaigns are running"
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Cannot change active landing page while campaigns are running",
+                    }
+                ),
+                400,
+            )
 
     # Get optional domain/IP from request
     phishing_domain = request.form.get("phishing_domain")
@@ -262,17 +299,32 @@ def activate_landing_page(landing_page_id):
     )
 
     if success:
-        # Clear old active cache and create new one
-        clear_active_cache()
         landing_page = landing_pages_repo.get_landing_page_by_id(landing_page_id)
         if landing_page:
-            cache_active_landing_page(landing_page)
+            # Check if this is a template-based landing page
+            if landing_page.get("template_path"):
+                # Deploy template to "active" directory for immediate testing
+                from utils.campaign_deployer import deploy_landing_page_to_campaign
 
-    return jsonify({
-        "success": success,
-        "message": message,
-        "dns_zone_path": dns_zone_path,
-    })
+                deploy_success, deploy_msg, deploy_path = deploy_landing_page_to_campaign(
+                    campaign_id="active", template_path=landing_page["template_path"]
+                )
+                if deploy_success:
+                    logger.info(f"Deployed active landing page to: {deploy_path}")
+                else:
+                    logger.warning(f"Failed to deploy active landing page: {deploy_msg}")
+            else:
+                # Legacy: Cache HTML content
+                clear_active_cache()
+                cache_active_landing_page(landing_page)
+
+    return jsonify(
+        {
+            "success": success,
+            "message": message,
+            "dns_zone_path": dns_zone_path,
+        }
+    )
 
 
 @landing_pages_bp.route("/landing-pages/deactivate", methods=["POST"])
@@ -280,24 +332,74 @@ def activate_landing_page(landing_page_id):
 def deactivate_landing_page():
     """Deactivate the currently active landing page"""
     from repositories.active_configuration_repository import ActiveConfigurationRepository
+    from db.models import Campaign
+    from database import db
 
     # Check if deactivation is allowed
-    can_deactivate, reason, campaign_status = ActiveConfigurationRepository.can_deactivate_landing_page()
+    (
+        can_deactivate,
+        reason,
+        campaign_status,
+    ) = ActiveConfigurationRepository.can_deactivate_landing_page()
 
     if not can_deactivate:
-        return jsonify({
-            "success": False,
-            "message": reason,
-            "campaign_status": campaign_status,
-        }), 400
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": reason,
+                    "campaign_status": campaign_status,
+                }
+            ),
+            400,
+        )
+
+    # Additional check: Count how many campaigns use this landing page
+    config = ActiveConfigurationRepository.get_active_configuration()
+    if config and config.active_landing_page_id:
+        active_campaigns = (
+            db.session.query(Campaign)
+            .filter(
+                Campaign.landing_page_id == config.active_landing_page_id,
+                Campaign.status.in_(["active", "scheduled"]),
+            )
+            .count()
+        )
+
+        if active_campaigns > 0:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": (
+                            f"Cannot deactivate: {active_campaigns} campaign(s) "
+                            "are using this landing page and are active or scheduled."
+                        ),
+                        "campaign_status": "active",
+                    }
+                ),
+                400,
+            )
 
     # Deactivate
     success, message = ActiveConfigurationRepository.deactivate_landing_page()
 
-    return jsonify({
-        "success": success,
-        "message": message,
-    })
+    if success:
+        # Clean up the "active" deployment directory
+        from utils.campaign_deployer import cleanup_campaign_deployment
+
+        cleanup_success, cleanup_msg = cleanup_campaign_deployment("active")
+        if cleanup_success:
+            logger.info(f"Cleaned up active deployment: {cleanup_msg}")
+        else:
+            logger.warning(f"Failed to cleanup active deployment: {cleanup_msg}")
+
+    return jsonify(
+        {
+            "success": success,
+            "message": message,
+        }
+    )
 
 
 @landing_pages_bp.route("/landing-pages/dns-zone")
@@ -313,16 +415,14 @@ def get_dns_zone_file():
         return jsonify({"success": False, "message": "No DNS zone file generated"}), 404
 
     from pathlib import Path
+
     filepath = Path(config.dns_zone_file_path)
 
     if not filepath.exists():
         return jsonify({"success": False, "message": "DNS zone file not found"}), 404
 
     return send_file(
-        filepath,
-        as_attachment=True,
-        download_name="dns-zone-entry.txt",
-        mimetype="text/plain"
+        filepath, as_attachment=True, download_name="dns-zone-entry.txt", mimetype="text/plain"
     )
 
 
@@ -332,11 +432,13 @@ def list_templates():
     """List all available landing page templates in /templates/landing_pages/"""
     templates = landing_pages_repo.list_available_templates()
 
-    return jsonify({
-        "success": True,
-        "templates": templates,
-        "count": len(templates),
-    })
+    return jsonify(
+        {
+            "success": True,
+            "templates": templates,
+            "count": len(templates),
+        }
+    )
 
 
 @landing_pages_bp.route("/landing-pages/templates/<template_name>/pages")
@@ -345,12 +447,14 @@ def get_template_pages(template_name):
     """Get all HTML entry pages in a template"""
     entry_pages = landing_pages_repo.get_template_entry_pages(template_name)
 
-    return jsonify({
-        "success": True,
-        "template_name": template_name,
-        "entry_pages": entry_pages,
-        "count": len(entry_pages),
-    })
+    return jsonify(
+        {
+            "success": True,
+            "template_name": template_name,
+            "entry_pages": entry_pages,
+            "count": len(entry_pages),
+        }
+    )
 
 
 @landing_pages_bp.route("/landing-pages/preview/cleanup", methods=["POST"])
@@ -361,10 +465,12 @@ def cleanup_preview():
 
     success, message = cleanup_preview_deployment()
 
-    return jsonify({
-        "success": success,
-        "message": message,
-    })
+    return jsonify(
+        {
+            "success": success,
+            "message": message,
+        }
+    )
 
 
 @landing_pages_bp.route("/landing-pages/preview/status")
@@ -375,7 +481,9 @@ def preview_status():
 
     is_deployed = is_preview_deployed()
 
-    return jsonify({
-        "success": True,
-        "is_deployed": is_deployed,
-    })
+    return jsonify(
+        {
+            "success": True,
+            "is_deployed": is_deployed,
+        }
+    )

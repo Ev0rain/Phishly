@@ -213,6 +213,30 @@ class TargetsRepository(BaseRepository):
                 )
 
                 if existing_target:
+                    # Update existing target with new data (if provided)
+                    if target_data.get("first_name"):
+                        existing_target.first_name = target_data["first_name"]
+                    if target_data.get("last_name"):
+                        existing_target.last_name = target_data["last_name"]
+                    if target_data.get("position"):
+                        existing_target.position = target_data["position"]
+                    if target_data.get("salutation"):
+                        existing_target.salutation = target_data["salutation"]
+
+                    # Update department
+                    dept_name = target_data.get("department", "").strip()
+                    if dept_name:
+                        dept = (
+                            db.session.query(Department)
+                            .filter(Department.name == dept_name)
+                            .first()
+                        )
+                        if not dept:
+                            dept = Department(name=dept_name)
+                            db.session.add(dept)
+                            db.session.flush()
+                        existing_target.department_id = dept.id
+
                     target_id = existing_target.id
                 else:
                     # Get or create department
@@ -378,7 +402,8 @@ class TargetsRepository(BaseRepository):
     @staticmethod
     def delete_group(group_id):
         """
-        Delete a target group and its memberships
+        Delete a target group and its memberships.
+        Also deletes targets that become orphaned (not in any other group) for privacy.
 
         Args:
             group_id: ID of the group to delete
@@ -387,10 +412,51 @@ class TargetsRepository(BaseRepository):
             bool: True if successful, False otherwise
         """
         try:
-            # Delete all memberships first
+            # Get all target IDs in this group BEFORE deleting memberships
+            target_ids_in_group = [
+                membership.target_id
+                for membership in db.session.query(TargetListMember)
+                .filter(TargetListMember.target_list_id == group_id)
+                .all()
+            ]
+
+            # Delete all memberships for this group
             db.session.query(TargetListMember).filter(
                 TargetListMember.target_list_id == group_id
             ).delete()
+
+            # Find targets that are now orphaned (not in any other group)
+            orphaned_targets = []
+            for target_id in target_ids_in_group:
+                # Count how many groups this target is still in
+                membership_count = db.session.query(TargetListMember).filter(
+                    TargetListMember.target_id == target_id
+                ).count()
+
+                if membership_count == 0:
+                    # Check if target is referenced by any campaigns
+                    from db.models import CampaignTarget
+                    campaign_ref_count = db.session.query(CampaignTarget).filter(
+                        CampaignTarget.target_id == target_id
+                    ).count()
+
+                    if campaign_ref_count == 0:
+                        # Target is orphaned AND not in campaigns - safe to delete
+                        orphaned_targets.append(target_id)
+                    else:
+                        # Target is orphaned but has campaign history - keep it
+                        logger.info(
+                            f"Keeping orphaned target {target_id} (referenced by {campaign_ref_count} campaign(s))"
+                        )
+
+            # Delete orphaned targets for privacy (only those not in campaigns)
+            if orphaned_targets:
+                db.session.query(Target).filter(
+                    Target.id.in_(orphaned_targets)
+                ).delete(synchronize_session=False)
+                logger.info(
+                    f"Deleted {len(orphaned_targets)} orphaned target(s) from group {group_id}"
+                )
 
             # Delete the target list
             target_list = (
@@ -453,6 +519,30 @@ class TargetsRepository(BaseRepository):
                 )
 
                 if existing_target:
+                    # Update existing target with new data (if provided)
+                    if target_data.get("first_name"):
+                        existing_target.first_name = target_data["first_name"]
+                    if target_data.get("last_name"):
+                        existing_target.last_name = target_data["last_name"]
+                    if target_data.get("position"):
+                        existing_target.position = target_data["position"]
+                    if target_data.get("salutation"):
+                        existing_target.salutation = target_data["salutation"]
+
+                    # Update department
+                    dept_name = target_data.get("department", "").strip()
+                    if dept_name:
+                        dept = (
+                            db.session.query(Department)
+                            .filter(Department.name == dept_name)
+                            .first()
+                        )
+                        if not dept:
+                            dept = Department(name=dept_name)
+                            db.session.add(dept)
+                            db.session.flush()
+                        existing_target.department_id = dept.id
+
                     target_id = existing_target.id
                 else:
                     # Get or create department

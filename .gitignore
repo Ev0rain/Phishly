@@ -31,3 +31,5 @@ Thumbs.db!/.python-version
 # Flask UI templates in webadmin/templates/ remain tracked as they are not in the root
 /templates/
 /webadmin/dns_zones/
+/webadmin/email_templates_imported/*.html
+/webadmin/email_templates_imported/*.htm

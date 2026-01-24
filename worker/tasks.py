@@ -118,16 +118,14 @@ def send_phishing_email(self, campaign_id: int, target_id: int) -> dict:
                     f"Campaign-target assignment not found: {campaign_id}, {target_id}"
                 )
 
-            # Get email template (use campaign-specific or default)
-            email_template = campaign_target.email_template or campaign.email_template
+            # Get email template from campaign
+            email_template = campaign.email_template
             if not email_template:
                 raise ValueError(f"No email template found for campaign {campaign_id}")
 
-            # Get landing page (cascade: campaign_target -> campaign -> template default)
-            landing_page = (
-                getattr(campaign_target, "landing_pages", None)
-                or campaign.landing_page
-                or getattr(email_template, "default_landing_page", None)
+            # Get landing page from campaign (or template default as fallback)
+            landing_page = campaign.landing_page or getattr(
+                email_template, "default_landing_page", None
             )
             if not landing_page:
                 raise ValueError(f"No landing page found for campaign {campaign_id}")
@@ -158,13 +156,14 @@ def send_phishing_email(self, campaign_id: int, target_id: int) -> dict:
             # Build template variables
             template_vars = get_email_template_variables(email_template, target, campaign)
 
-            # Step 2: Render email template
+            # Step 2: Render email template with landing page's domain
             html_content, text_content = email_renderer.render_email(
-                html_template=email_template.html_content,
-                text_template=email_template.text_content,
+                html_template=email_template.body_html,
+                text_template=email_template.body_text,
                 variables=template_vars,
                 tracking_token=tracking_token,
                 landing_page_url=landing_page.url_path,
+                phishing_domain=landing_page.domain,  # Use landing page's domain for links
             )
 
             # Render subject line
@@ -183,9 +182,9 @@ def send_phishing_email(self, campaign_id: int, target_id: int) -> dict:
             subject=subject,
             html_content=html_content,
             text_content=text_content,
-            from_email=email_template.sender_email,
-            from_name=email_template.sender_name,
-            reply_to=email_template.sender_email,
+            from_email=email_template.from_email,
+            from_name=email_template.from_name,
+            reply_to=email_template.from_email,
             custom_headers={
                 "X-Campaign-ID": str(campaign_id),
                 "X-Target-ID": str(target_id),

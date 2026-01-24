@@ -256,6 +256,43 @@ def create_app(config=None):
         except Exception as e:
             return f"Preview error: {str(e)}", 500
 
+    # Live phishing page proxy - forwards to actual deployed landing page
+    @app.route("/phishing/", defaults={"path": ""})
+    @app.route("/phishing/<path:path>")
+    def phishing_live_proxy(path):
+        """Proxy requests to live deployed landing page on phishing server"""
+        import requests
+        from flask import Response, request as flask_request
+
+        # Forward to phishing server (actual landing page, not preview)
+        phishing_url = f"http://phishly-phishing:8000/{path}"
+
+        # Copy query parameters (including tracking tokens)
+        if flask_request.query_string:
+            phishing_url += f"?{flask_request.query_string.decode()}"
+
+        try:
+            # Forward the request with same method
+            if flask_request.method == 'POST':
+                resp = requests.post(
+                    phishing_url,
+                    data=flask_request.form,
+                    headers={'Content-Type': flask_request.content_type},
+                    stream=True,
+                    timeout=10
+                )
+            else:
+                resp = requests.get(phishing_url, stream=True, timeout=10)
+
+            # Create response with same status code and content type
+            return Response(
+                resp.content,
+                status=resp.status_code,
+                content_type=resp.headers.get('Content-Type', 'text/html')
+            )
+        except Exception as e:
+            return f"Phishing server error: {str(e)}", 500
+
     return app
 
 

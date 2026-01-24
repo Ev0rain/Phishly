@@ -200,6 +200,26 @@ def find_cached_landing_page(url_path: str) -> tuple[Path, dict] | None:
                     index_file = campaign_dir / "index.html"
                     if index_file.exists():
                         return campaign_dir, {"campaign_id": active_campaign_id}
+        else:
+            # No active campaign - check for "active" deployment (for testing without campaign)
+            active_dir = CAMPAIGN_DEPLOYMENTS_DIR / "active"
+            if active_dir.exists():
+                # Try exact path match first
+                direct_file = active_dir / normalized_path
+                if direct_file.exists() and direct_file.is_file():
+                    return active_dir, {"source": "active", "file": normalized_path}
+
+                # Try as directory with index.html
+                page_dir = active_dir / normalized_path
+                index_file = page_dir / "index.html"
+                if index_file.exists():
+                    return page_dir, {"source": "active"}
+
+                # Try root index.html if path is empty or "/"
+                if not normalized_path:
+                    index_file = active_dir / "index.html"
+                    if index_file.exists():
+                        return active_dir, {"source": "active"}
 
     # LEGACY: Check active cache
     active_cache_dir = CACHE_DIR / "active"
@@ -576,8 +596,9 @@ def serve_landing_page(url_path):
 
 @app.route("/")
 def index():
-    """Root endpoint - return minimal response."""
-    return Response("", status=204)
+    """Root endpoint - serve landing page if available."""
+    # Try to serve from active deployment
+    return serve_landing_page("")
 
 
 # ============================================

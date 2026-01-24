@@ -17,8 +17,15 @@ logger = logging.getLogger(__name__)
 class TemplatesRepository(BaseRepository):
     """Real database repository for email templates with hybrid storage"""
 
-    # Directory where template HTML files are stored
+    # Directory where IMPORTED template HTML files are stored (writable)
+    # This is different from the read-only template library at /templates
     TEMPLATES_DIR = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "email_templates_imported"
+    )
+
+    # Directory where source template library is located (read-only)
+    # This is where we READ templates FROM for import
+    TEMPLATES_LIBRARY_DIR = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "templates", "email_templates"
     )
 
@@ -110,21 +117,34 @@ class TemplatesRepository(BaseRepository):
 
     @staticmethod
     def get_template_html(template_id):
-        """Read the HTML content of a template file from disk"""
-        # Build file path based on template ID
-        filename = f"{template_id}.html"
-        filepath = os.path.join(TemplatesRepository.TEMPLATES_DIR, filename)
+        """
+        Read the HTML content of a template.
+        Primary source: database body_html field (for worker compatibility)
+        Fallback: file system, then mock template
+        """
+        try:
+            # Try database first (primary source for worker)
+            template = (
+                db.session.query(EmailTemplate).filter(EmailTemplate.id == template_id).first()
+            )
 
-        # If file doesn't exist, return a mock HTML template
-        if not os.path.exists(filepath):
-            logger.warning(f"Template file not found: {filepath}")
+            if template and template.body_html:
+                return template.body_html
+
+            # Fallback to file system
+            filename = f"{template_id}.html"
+            filepath = os.path.join(TemplatesRepository.TEMPLATES_DIR, filename)
+
+            if os.path.exists(filepath):
+                with open(filepath, "r", encoding="utf-8") as f:
+                    return f.read()
+
+            # Final fallback to mock template
+            logger.warning(f"Template {template_id} not found in DB or file system")
             return TemplatesRepository._get_mock_html()
 
-        try:
-            with open(filepath, "r", encoding="utf-8") as f:
-                return f.read()
         except Exception as e:
-            logger.error(f"Error reading template file: {e}")
+            logger.error(f"Error reading template {template_id}: {e}")
             return f"<p>Error reading template: {str(e)}</p>"
 
     @staticmethod
@@ -240,7 +260,7 @@ class TemplatesRepository(BaseRepository):
                 subject=subject,
                 from_email=from_email,
                 from_name=from_name,
-                body_html="",  # Empty placeholder, actual HTML stored in file
+                body_html=html_content,  # Store HTML in database for worker access
                 created_by_id=created_by_id,
                 default_landing_page_id=default_landing_page_id,
                 created_at=datetime.utcnow(),
@@ -272,11 +292,7 @@ class TemplatesRepository(BaseRepository):
     def get_all_landing_pages():
         """Return all landing pages for template selection dropdown"""
         try:
-            landing_pages = (
-                db.session.query(LandingPage)
-                .order_by(LandingPage.name.asc())
-                .all()
-            )
+            landing_pages = db.session.query(LandingPage).order_by(LandingPage.name.asc()).all()
 
             return [
                 {
@@ -329,9 +345,7 @@ class TemplatesRepository(BaseRepository):
         """
         try:
             template = (
-                db.session.query(EmailTemplate)
-                .filter(EmailTemplate.id == template_id)
-                .first()
+                db.session.query(EmailTemplate).filter(EmailTemplate.id == template_id).first()
             )
 
             if not template:
@@ -357,6 +371,60 @@ class TemplatesRepository(BaseRepository):
             return False, f"Error deleting template: {str(e)}"
 
     @staticmethod
+    def update_template(
+        template_id,
+        name,
+        subject,
+        from_email=None,
+        from_name=None,
+        default_landing_page_id=None,
+    ):
+        """
+        Update an existing email template's metadata.
+
+        Args:
+            template_id: ID of template to update
+            name: New template name
+            subject: New email subject
+            from_email: New sender email (optional)
+            from_name: New sender name (optional)
+            default_landing_page_id: New default landing page (optional)
+
+        Returns:
+            tuple: (success: bool, message: str)
+        """
+        try:
+            template = (
+                db.session.query(EmailTemplate).filter(EmailTemplate.id == template_id).first()
+            )
+
+            if not template:
+                return False, "Template not found"
+
+            # Update fields
+            template.name = name
+            template.subject = subject
+
+            if from_email is not None:
+                template.from_email = from_email
+            if from_name is not None:
+                template.from_name = from_name
+            if default_landing_page_id is not None:
+                template.default_landing_page_id = default_landing_page_id
+
+            template.updated_at = datetime.utcnow()
+
+            db.session.commit()
+
+            logger.info(f"Updated email template {template_id}: {name}")
+            return True, f"Template '{name}' updated successfully"
+
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error updating template {template_id}: {e}", exc_info=True)
+            return False, f"Error updating template: {str(e)}"
+
+    @staticmethod
     def list_available_template_files():
         """
         List all available email template .html files in templates/email_templates/
@@ -371,7 +439,7 @@ class TemplatesRepository(BaseRepository):
         templates = []
 
         try:
-            templates_dir = TemplatesRepository.TEMPLATES_DIR
+            templates_dir = TemplatesRepository.TEMPLATES_LIBRARY_DIR
 
             if not os.path.exists(templates_dir):
                 logger.warning(f"Templates directory not found: {templates_dir}")
@@ -379,7 +447,7 @@ class TemplatesRepository(BaseRepository):
 
             # Scan for .html files
             for filename in os.listdir(templates_dir):
-                if filename.endswith('.html') and not filename.endswith('.j2'):
+                if filename.endswith(".html") and not filename.endswith(".j2"):
                     filepath = os.path.join(templates_dir, filename)
 
                     # Get file size
@@ -388,22 +456,24 @@ class TemplatesRepository(BaseRepository):
 
                     # Create display name (remove number prefix and .html extension)
                     # e.g., "01_urgent_password_reset.html" -> "Urgent Password Reset"
-                    display_name = filename.replace('.html', '')
+                    display_name = filename.replace(".html", "")
                     # Remove number prefix if present (e.g., "01_")
-                    if '_' in display_name and display_name.split('_')[0].isdigit():
-                        display_name = '_'.join(display_name.split('_')[1:])
+                    if "_" in display_name and display_name.split("_")[0].isdigit():
+                        display_name = "_".join(display_name.split("_")[1:])
                     # Replace underscores with spaces and title case
-                    display_name = display_name.replace('_', ' ').title()
+                    display_name = display_name.replace("_", " ").title()
 
-                    templates.append({
-                        'filename': filename,
-                        'name': display_name,
-                        'path': filepath,
-                        'size_kb': size_kb
-                    })
+                    templates.append(
+                        {
+                            "filename": filename,
+                            "name": display_name,
+                            "path": filepath,
+                            "size_kb": size_kb,
+                        }
+                    )
 
             # Sort by filename
-            templates.sort(key=lambda t: t['filename'])
+            templates.sort(key=lambda t: t["filename"])
 
         except Exception as e:
             logger.error(f"Error listing template files: {e}", exc_info=True)
@@ -413,7 +483,7 @@ class TemplatesRepository(BaseRepository):
     @staticmethod
     def get_template_file_content(filename):
         """
-        Read the content of a template file
+        Read the content of a template file from the source library
 
         Args:
             filename: Template filename (e.g., "01_urgent_password_reset.html")
@@ -422,12 +492,12 @@ class TemplatesRepository(BaseRepository):
             tuple: (success: bool, content: str or error message)
         """
         try:
-            filepath = os.path.join(TemplatesRepository.TEMPLATES_DIR, filename)
+            filepath = os.path.join(TemplatesRepository.TEMPLATES_LIBRARY_DIR, filename)
 
             if not os.path.exists(filepath):
                 return False, f"Template file not found: {filename}"
 
-            with open(filepath, 'r', encoding='utf-8') as f:
+            with open(filepath, "r", encoding="utf-8") as f:
                 content = f.read()
 
             return True, content

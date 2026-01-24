@@ -93,6 +93,9 @@
                             <button class="btn-icon preview-btn" data-template-id="{{ template.id }}" title="Preview">
                                 ◉
                             </button>
+                            <button class="btn-icon edit-btn" data-template-id="{{ template.id }}" title="Edit">
+                                ✎
+                            </button>
                             <button class="btn-icon btn-danger delete-btn" data-template-id="{{ template.id }}"
                                     data-template-name="{{ template.name }}" title="Delete">
                                 ✕
@@ -179,6 +182,44 @@
         </div>
     </div>
 
+    <!-- Edit Template Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Email Template</h2>
+                <span class="close-btn" id="closeEditModal">&times;</span>
+            </div>
+            <form id="editTemplateForm">
+                <input type="hidden" id="editTemplateId" name="template_id">
+
+                <div class="form-group">
+                    <label for="editName">Template Name <span class="required">*</span></label>
+                    <input type="text" id="editName" name="name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="editSubject">Email Subject <span class="required">*</span></label>
+                    <input type="text" id="editSubject" name="subject" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="editFromEmail">From Email</label>
+                    <input type="email" id="editFromEmail" name="from_email">
+                </div>
+
+                <div class="form-group">
+                    <label for="editFromName">From Name</label>
+                    <input type="text" id="editFromName" name="from_name">
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="cancelEdit">Cancel</button>
+                    <button type="submit" class="btn-primary">Update Template</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Preview Modal -->
     <div id="previewModal" class="modal preview-modal">
         <div class="modal-content preview-content">
@@ -191,7 +232,7 @@
             </div>
             
             <div class="preview-body">
-                <iframe id="previewFrame" sandbox="allow-same-origin"></iframe>
+                <iframe id="previewFrame" sandbox="allow-same-origin allow-popups" style="display: block;"></iframe>
             </div>
         </div>
     </div>

@@ -72,6 +72,7 @@ services:
       target: development  # Use 'production' for production builds
     container_name: phishly-webadmin
     restart: unless-stopped
+    user: "1000:1000"  # Run as host user to prevent root ownership of files
 
     # No direct port exposure - accessed through reverse proxy only
     expose:
@@ -132,6 +133,7 @@ services:
       context: ./worker
       dockerfile: Dockerfile
     container_name: celery-worker
+    user: "1000:1000"  # Run as host user to prevent root ownership of files
     restart: unless-stopped
 
     environment:
@@ -229,6 +231,8 @@ services:
     restart: unless-stopped
 
     ports:
+      # HTTP for local testing
+      - "80:80"
       # HTTPS for phishing domain (public)
       - "443:443"
       # WebAdmin port (internal)

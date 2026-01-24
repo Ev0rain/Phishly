@@ -183,6 +183,13 @@ document.addEventListener('DOMContentLoaded', function () {
             return false;
         }
     });
+
+    // Clear hash before import form submission to prevent modal from reopening
+    const importGroupForm = document.getElementById('importGroupForm');
+    importGroupForm?.addEventListener('submit', function (e) {
+        // Clear hash before form submission
+        window.location.hash = '';
+    });
 });
 
 /**
@@ -300,7 +307,7 @@ function openEditModal(groupId) {
     editSpreadsheetBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Loading members...</td></tr>';
 
     // Fetch members from API
-    fetch(`/targets/${groupId}/members`)
+    fetch(`/api/targets/${groupId}/members`)
         .then(response => response.json())
         .then(data => {
             if (data.success && data.members) {

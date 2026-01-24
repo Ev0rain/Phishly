@@ -659,6 +659,8 @@ jane.smith@company.com,Jane,Smith,Ms.,Marketing Manager,Marketing</pre>
                 .then(response => response.json())
                 .then(result => {
                     if (result.success) {
+                        // Clear hash before reload to prevent modal from reopening
+                        window.location.hash = '';
                         window.location.reload();
                     } else {
                         showValidationMessage('createValidationMessage', [result.message || 'Error creating group']);
@@ -708,6 +710,8 @@ jane.smith@company.com,Jane,Smith,Ms.,Marketing Manager,Marketing</pre>
                 .then(response => response.json())
                 .then(result => {
                     if (result.success) {
+                        // Clear hash before reload to prevent modal from reopening
+                        window.location.hash = '';
                         window.location.reload();
                     } else {
                         showValidationMessage('editValidationMessage', [result.message || 'Error updating group']);

@@ -163,6 +163,36 @@ def delete_template(template_id):
         return jsonify({"success": False, "message": message}), 500
 
 
+@templates_bp.route("/templates/<int:template_id>/edit", methods=["POST"])
+@login_required
+def edit_template(template_id):
+    """Update existing email template metadata"""
+    # Get form data
+    name = request.form.get("name")
+    subject = request.form.get("subject")
+    from_email = request.form.get("from_email")
+    from_name = request.form.get("from_name")
+    default_landing_page_id = request.form.get("default_landing_page_id")
+
+    if not name or not subject:
+        return jsonify({"success": False, "message": "Name and subject required"}), 400
+
+    # Update template
+    success, message = templates_repo.update_template(
+        template_id=template_id,
+        name=name,
+        subject=subject,
+        from_email=from_email,
+        from_name=from_name,
+        default_landing_page_id=int(default_landing_page_id) if default_landing_page_id else None
+    )
+
+    if success:
+        return jsonify({"success": True, "message": message})
+    else:
+        return jsonify({"success": False, "message": message}), 500
+
+
 @templates_bp.route("/templates/available-files")
 @login_required
 def list_available_template_files():

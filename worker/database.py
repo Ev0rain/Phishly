@@ -20,6 +20,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    text,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, Session
@@ -106,10 +107,12 @@ class EmailTemplate(Base):
     default_landing_page_id = Column(BigInteger, ForeignKey("landing_pages.id"))
     name = Column(String(255))
     subject = Column(String(500))
-    html_content = Column(Text)
-    text_content = Column(Text)
-    sender_name = Column(String(255))
-    sender_email = Column(String(255))
+    body_html = Column(Text)  # Database column name
+    body_text = Column(Text)  # Database column name
+    from_name = Column(String(255))  # Database column name
+    from_email = Column(String(255))  # Database column name
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     created_by = relationship("AdminUser")
     default_landing_page = relationship("LandingPage")
@@ -124,6 +127,8 @@ class LandingPage(Base):
     created_by_id = Column(BigInteger, ForeignKey("admin_users.id"))
     name = Column(String(255))
     url_path = Column(String(255))  # e.g., /login-portal
+    # Domain for email links (e.g., phishing.example.com)
+    domain = Column(String(255), nullable=False)
     html_content = Column(Text)
     css_content = Column(Text)
     js_content = Column(Text)
@@ -144,10 +149,16 @@ class Campaign(Base):
     email_template_id = Column(BigInteger, ForeignKey("email_templates.id"))
     landing_page_id = Column(BigInteger, ForeignKey("landing_pages.id"))
     name = Column(String(255))
+    description = Column(Text)
     status = Column(String(50))  # draft, scheduled, active, completed, paused
+    min_email_delay = Column(Integer)  # Minimum delay in seconds between emails
+    max_email_delay = Column(Integer)  # Maximum delay in seconds between emails
+    scheduled_launch = Column(DateTime)  # When to automatically launch the campaign
+    start_date = Column(DateTime)
+    end_date = Column(DateTime)
+    completed_date = Column(DateTime)  # When campaign was marked as completed
     created_at = Column(DateTime)
-    scheduled_at = Column(DateTime)
-    completed_at = Column(DateTime)
+    updated_at = Column(DateTime)
 
     created_by = relationship("AdminUser")
     email_template = relationship("EmailTemplate")
@@ -175,15 +186,13 @@ class CampaignTarget(Base):
     id = Column(BigInteger, primary_key=True)
     campaign_id = Column(BigInteger, ForeignKey("campaigns.id"))
     target_id = Column(BigInteger, ForeignKey("targets.id"))
-    email_template_id = Column(BigInteger, ForeignKey("email_templates.id"))
-    landing_page_id = Column(BigInteger, ForeignKey("landing_pages.id"))
+    # email_template_id and landing_page_id removed - now inherited from campaign
     tracking_token = Column(String(255), unique=True)  # Unique token for tracking
     status = Column(String(50))  # pending, sent, opened, clicked, submitted
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     campaign = relationship("Campaign")
     target = relationship("Target")
-    email_template = relationship("EmailTemplate")
-    landing_page = relationship("LandingPage")
 
 
 class EmailJob(Base):
@@ -223,12 +232,13 @@ class Event(Base):
     id = Column(BigInteger, primary_key=True)
     campaign_target_id = Column(BigInteger, ForeignKey("campaign_targets.id"))
     event_type_id = Column(BigInteger, ForeignKey("event_types.id"))
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)  # Database column name
     ip_address = Column(String(45))
     user_agent = Column(Text)
-    event_metadata = Column(
-        Text
-    )  # JSON string for additional data (renamed from metadata to avoid SQLAlchemy conflict)
+    browser = Column(String(100))
+    os = Column(String(100))
+    device_type = Column(String(50))
+    location = Column(String(255))
 
     campaign_target = relationship("CampaignTarget")
     event_type = relationship("EventType")
@@ -300,7 +310,7 @@ class DatabaseManager:
         """
         try:
             with self.get_session() as session:
-                session.execute("SELECT 1")
+                session.execute(text("SELECT 1"))
             logger.info("Database connection test: SUCCESS")
             return True
         except Exception as e:
@@ -484,10 +494,10 @@ def log_event(
     event = Event(
         campaign_target_id=campaign_target_id,
         event_type_id=event_type.id,
-        timestamp=datetime.utcnow(),
+        created_at=datetime.utcnow(),
         ip_address=ip_address,
         user_agent=user_agent,
-        metadata=metadata,
+        # Note: event_metadata column was removed from model since it doesn't exist in DB
     )
     session.add(event)
     session.flush()
@@ -526,8 +536,8 @@ def get_email_template_variables(
         # Campaign information
         "campaign_name": campaign.name or "",
         # Sender information
-        "sender_name": template.sender_name or "",
-        "sender_email": template.sender_email or "",
+        "sender_name": template.from_name or "",
+        "sender_email": template.from_email or "",
         # Utility variables
         "year": str(datetime.now().year),
         # Tracking (to be set by email renderer)

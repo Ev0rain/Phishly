@@ -42,6 +42,7 @@ class EmailRenderer:
         variables: Dict,
         tracking_token: str,
         landing_page_url: str,
+        phishing_domain: str = None,
     ) -> Tuple[str, str]:
         """
         Render both HTML and text versions of an email.
@@ -52,6 +53,7 @@ class EmailRenderer:
             variables: Dictionary of template variables
             tracking_token: Unique tracking token for this email
             landing_page_url: Landing page URL path
+            phishing_domain: Domain for phishing links (from landing page)
 
         Returns:
             Tuple of (html_content, text_content)
@@ -60,10 +62,13 @@ class EmailRenderer:
             TemplateSyntaxError: If template has syntax errors
             UndefinedError: If required variable is missing
         """
+        # Use provided domain or fall back to instance domain
+        domain = phishing_domain or self.phishing_domain
+
         # Build tracking URLs
-        tracking_pixel_url = self._build_tracking_pixel_url(tracking_token)
-        phishing_link_url = self._build_phishing_link_url(landing_page_url, tracking_token)
-        unsubscribe_url = self._build_unsubscribe_url(tracking_token)
+        tracking_pixel_url = self._build_tracking_pixel_url(tracking_token, domain)
+        phishing_link_url = self._build_phishing_link_url(landing_page_url, tracking_token, domain)
+        unsubscribe_url = self._build_unsubscribe_url(tracking_token, domain)
 
         # Add tracking URLs and auto-generated variables
         render_vars = {
@@ -90,16 +95,23 @@ class EmailRenderer:
             logger.error(f"HTML template undefined variable: {e}")
             raise
 
-        # Render text version
-        try:
-            text_jinja = Template(text_template)
-            text_content = text_jinja.render(**render_vars)
-        except TemplateSyntaxError as e:
-            logger.error(f"Text template syntax error: {e}")
-            raise
-        except UndefinedError as e:
-            logger.error(f"Text template undefined variable: {e}")
-            raise
+        # Render text version (if provided)
+        if text_template:
+            try:
+                text_jinja = Template(text_template)
+                text_content = text_jinja.render(**render_vars)
+            except TemplateSyntaxError as e:
+                logger.error(f"Text template syntax error: {e}")
+                raise
+            except UndefinedError as e:
+                logger.error(f"Text template undefined variable: {e}")
+                raise
+        else:
+            # No text template provided - use plain text fallback
+            text_content = (
+                "Please view this email in an HTML-capable email client.\n\n"
+                f"Tracking URL: {phishing_link_url}"
+            )
 
         # Inject tracking pixel into HTML (at end of body)
         html_content = self._inject_tracking_pixel(html_content, tracking_pixel_url)
@@ -107,47 +119,55 @@ class EmailRenderer:
         logger.info(f"Email rendered successfully for token {tracking_token}")
         return html_content, text_content
 
-    def _build_tracking_pixel_url(self, tracking_token: str) -> str:
+    def _build_tracking_pixel_url(self, tracking_token: str, domain: str = None) -> str:
         """
         Build tracking pixel URL for email opens.
 
         Args:
             tracking_token: Unique tracking token
+            domain: Domain to use (optional, falls back to self.phishing_domain)
 
         Returns:
             URL to tracking pixel image
         """
+        domain = domain or self.phishing_domain
         params = urlencode({"t": tracking_token})
-        return f"https://{self.phishing_domain}/track/open?{params}"
+        return f"https://{domain}/track/open?{params}"
 
-    def _build_phishing_link_url(self, landing_page_url: str, tracking_token: str) -> str:
+    def _build_phishing_link_url(
+        self, landing_page_url: str, tracking_token: str, domain: str = None
+    ) -> str:
         """
         Build phishing link URL with tracking.
 
         Args:
             landing_page_url: Landing page URL path
             tracking_token: Unique tracking token
+            domain: Domain to use (optional, falls back to self.phishing_domain)
 
         Returns:
             Full phishing link URL
         """
+        domain = domain or self.phishing_domain
         params = urlencode({"t": tracking_token})
         # Remove leading slash if present
         landing_page_url = landing_page_url.lstrip("/")
-        return f"https://{self.phishing_domain}/{landing_page_url}?{params}"
+        return f"https://{domain}/{landing_page_url}?{params}"
 
-    def _build_unsubscribe_url(self, tracking_token: str) -> str:
+    def _build_unsubscribe_url(self, tracking_token: str, domain: str = None) -> str:
         """
         Build unsubscribe URL (optional feature).
 
         Args:
             tracking_token: Unique tracking token
+            domain: Domain to use (optional, falls back to self.phishing_domain)
 
         Returns:
             URL to unsubscribe page
         """
+        domain = domain or self.phishing_domain
         params = urlencode({"t": tracking_token})
-        return f"https://{self.phishing_domain}/unsubscribe?{params}"
+        return f"https://{domain}/unsubscribe?{params}"
 
     def _inject_tracking_pixel(self, html_content: str, tracking_pixel_url: str) -> str:
         """
@@ -202,9 +222,7 @@ class EmailRenderer:
             logger.error(f"Subject template syntax error: {e}")
             raise
 
-    def generate_tracking_token(
-        self, campaign_id: int = None, target_id: int = None
-    ) -> str:
+    def generate_tracking_token(self, campaign_id: int = None, target_id: int = None) -> str:
         """
         Generate a unique tracking token.
 
@@ -221,9 +239,7 @@ class EmailRenderer:
         if campaign_id is not None and target_id is not None:
             # Deterministic HMAC-based token for campaign-target pair
             message = f"c{campaign_id}t{target_id}".encode()
-            signature = hmac.new(
-                TRACKING_SECRET_KEY.encode(), message, hashlib.sha256
-            ).digest()
+            signature = hmac.new(TRACKING_SECRET_KEY.encode(), message, hashlib.sha256).digest()
             # URL-safe base64, truncated to 32 chars
             token = base64.urlsafe_b64encode(signature).decode().rstrip("=")[:32]
             return token

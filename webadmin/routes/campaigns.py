@@ -254,6 +254,32 @@ def launch_campaign(campaign_id):
         if not campaign_targets:
             return jsonify({"success": False, "message": "Campaign has no targets"}), 400
 
+        # Validate landing page exists
+        if not campaign.landing_page:
+            return jsonify({
+                "success": False,
+                "message": "Campaign has no landing page. Please assign a landing page before launching."
+            }), 400
+
+        # Validate landing page is active or will be activated
+        from repositories.active_configuration_repository import ActiveConfigurationRepository
+        active_config = ActiveConfigurationRepository.get_active_configuration()
+
+        # If another landing page is active and this campaign uses different one
+        if active_config and active_config.active_landing_page_id:
+            if active_config.active_landing_page_id != campaign.landing_page_id:
+                # Check if any other campaigns are running
+                other_active = db.session.query(Campaign).filter(
+                    Campaign.id != campaign_id,
+                    Campaign.status == 'active'
+                ).count()
+
+                if other_active > 0:
+                    return jsonify({
+                        "success": False,
+                        "message": "Cannot launch: Another landing page is active and being used by running campaigns. Pause those campaigns first."
+                    }), 400
+
         # Deploy landing page template to campaign-specific directory
         landing_page = campaign.landing_page
         if landing_page:
@@ -276,6 +302,21 @@ def launch_campaign(campaign_id):
                     logger.warning(f"Failed to cache landing page for campaign {campaign_id}")
         else:
             logger.warning(f"Campaign {campaign_id} has no landing page")
+
+        # Activate landing page
+        if landing_page:
+            from repositories.active_configuration_repository import ActiveConfigurationRepository
+
+            activation_success, activation_msg, dns_path = ActiveConfigurationRepository.activate_landing_page(
+                landing_page_id=landing_page.id,
+                user_id=current_user.id if hasattr(current_user, 'id') else None,
+                phishing_domain=landing_page.domain,
+                public_ip=None  # Will use configured value or placeholder
+            )
+            if activation_success:
+                logger.info(f"Activated landing page {landing_page.id} for campaign {campaign_id}")
+            else:
+                logger.warning(f"Failed to activate landing page for campaign {campaign_id}: {activation_msg}")
 
         # Update campaign status
         campaign.status = "active"
@@ -420,6 +461,60 @@ def pause_campaign(campaign_id):
         return jsonify({"success": False, "message": f"Error pausing campaign: {str(e)}"}), 500
 
 
+@campaigns_bp.route("/campaigns/<int:campaign_id>/complete", methods=["POST"])
+@login_required
+def complete_campaign(campaign_id):
+    """
+    Mark campaign as completed manually.
+
+    In future: This will be called automatically by a Celery Beat task
+    when all emails are sent and opened.
+    """
+    try:
+        campaign = db.session.get(Campaign, campaign_id)
+
+        if not campaign:
+            return jsonify({"success": False, "message": "Campaign not found"}), 404
+
+        if campaign.status not in ['active', 'paused']:
+            return jsonify({
+                "success": False,
+                "message": "Only active or paused campaigns can be marked completed"
+            }), 400
+
+        # Update campaign status
+        campaign.status = "completed"
+        campaign.completed_date = datetime.utcnow()
+        db.session.commit()
+
+        # Deactivate landing page if it was active for this campaign
+        from repositories.active_configuration_repository import ActiveConfigurationRepository
+        active_config = ActiveConfigurationRepository.get_active_configuration()
+        if active_config and active_config.active_landing_page_id == campaign.landing_page_id:
+            # Check if any other active campaigns use this landing page
+            other_active = db.session.query(Campaign).filter(
+                Campaign.id != campaign_id,
+                Campaign.landing_page_id == campaign.landing_page_id,
+                Campaign.status == 'active'
+            ).count()
+
+            if other_active == 0:
+                # Safe to deactivate
+                deactivation_success, deactivation_msg = ActiveConfigurationRepository.deactivate_landing_page()
+                if deactivation_success:
+                    logger.info(f"Deactivated landing page after campaign {campaign_id} completion")
+
+        return jsonify({
+            "success": True,
+            "message": "Campaign marked as completed"
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error completing campaign: {e}", exc_info=True)
+        return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500
+
+
 @campaigns_bp.route("/campaigns/<int:campaign_id>/delete", methods=["POST", "DELETE"])
 @login_required
 def delete_campaign(campaign_id):
@@ -456,6 +551,16 @@ def delete_campaign(campaign_id):
             logger.info(f"Cleaned up deployment for campaign {campaign_id}")
         else:
             logger.warning(f"Failed to clean up deployment for campaign {campaign_id}: {cleanup_msg}")
+
+        # Deactivate landing page if this campaign was using the active one
+        from repositories.active_configuration_repository import ActiveConfigurationRepository
+        active_config = ActiveConfigurationRepository.get_active_configuration()
+        if active_config and campaign.landing_page_id and active_config.active_landing_page_id == campaign.landing_page_id:
+            deactivation_success, deactivation_msg = ActiveConfigurationRepository.deactivate_landing_page()
+            if deactivation_success:
+                logger.info(f"Deactivated landing page {campaign.landing_page_id} after campaign deletion")
+            else:
+                logger.warning(f"Failed to deactivate landing page: {deactivation_msg}")
 
         db.session.delete(campaign)
         db.session.commit()

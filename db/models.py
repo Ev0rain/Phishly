@@ -128,8 +128,9 @@ class LandingPage(Base):
     id = Column(BigInteger, primary_key=True)
     created_by_id = Column(BigInteger, ForeignKey("admin_users.id"))
     name = Column(String(255), nullable=False)
-    url_path = Column(String(255), unique=True, nullable=False)  # e.g., /login-portal
-    domain = Column(String(255))  # e.g., phishing.example.com or full URL https://phishing.example.com/login
+    url_path = Column(String(255), unique=True, nullable=False)
+    # Domain for email links (e.g., phishing.example.com)
+    domain = Column(String(255), nullable=False)
 
     # DEPRECATED: Content columns - use template_path instead
     # These columns are kept for backwards compatibility during migration
@@ -155,6 +156,7 @@ class LandingPage(Base):
 
 class ActiveConfiguration(Base):
     """Singleton table for active landing page configuration."""
+
     __tablename__ = "active_configuration"
 
     id = Column(BigInteger, primary_key=True)  # Always 1 (singleton)
@@ -189,6 +191,7 @@ class Campaign(Base):
     scheduled_launch = Column(DateTime)  # When to automatically launch the campaign
     start_date = Column(DateTime)
     end_date = Column(DateTime)
+    completed_date = Column(DateTime)  # When campaign was marked as completed
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -67,6 +67,14 @@ def deploy_landing_page_to_campaign(campaign_id: int, template_path: str) -> Tup
         logger.info(f"Deploying template '{template_path}' to campaign {campaign_id}")
         shutil.copytree(source, dest)
 
+        # Add cookie consent disabler to all HTML files
+        try:
+            from utils.cookie_consent_disabler import process_campaign_deployment
+            process_campaign_deployment(str(campaign_id))
+            logger.info(f"Added cookie consent disabler to campaign {campaign_id}")
+        except Exception as e:
+            logger.warning(f"Failed to add cookie consent disabler: {e}")
+
         # Deploy info_page as awareness redirect for phish pages
         if template_path == "ups_phish_page_full":
             from utils.info_page_processor import deploy_info_page
@@ -302,6 +310,14 @@ def deploy_preview(template_path: str) -> Tuple[bool, str, str]:
         # Copy entire template folder to preview directory
         logger.info(f"Deploying preview for template '{template_path}'")
         shutil.copytree(source, preview_dir)
+
+        # Add cookie consent disabler to all HTML files
+        try:
+            from utils.cookie_consent_disabler import process_campaign_deployment
+            process_campaign_deployment("preview")
+            logger.info("Added cookie consent disabler to preview")
+        except Exception as e:
+            logger.warning(f"Failed to add cookie consent disabler: {e}")
 
         # Deploy info_page as awareness redirect for phish pages (preview)
         if template_path == "ups_phish_page_full":

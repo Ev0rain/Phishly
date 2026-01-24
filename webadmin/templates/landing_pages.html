@@ -7,6 +7,7 @@
     <script src="{{ url_for('static', filename='js/theme-loader.js') }}"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/landing_pages.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing_pages_active_banner.css') }}">
 </head>
 <body>
 <!-- Sidebar Navigation -->
@@ -80,6 +81,73 @@
         <button id="createLandingPageBtn" class="btn btn-primary">+ Create Landing Page</button>
     </div>
 
+    {% if active_info %}
+    <!-- Active Landing Page Banner -->
+    <div class="active-banner">
+        <div class="banner-content">
+            <div class="banner-icon">✓</div>
+            <div class="banner-info">
+                <h3>Currently Active: {{ active_info.landing_page.name }}</h3>
+                {% if active_info.campaign %}
+                <p>Campaign: <strong>{{ active_info.campaign.name }}</strong> ({{ active_info.campaign.status }})</p>
+                {% else %}
+                <p>No active campaign</p>
+                {% endif %}
+                <div class="banner-meta">
+                    <span>Domain: {{ active_info.landing_page.domain or 'Not set' }}</span>
+                    <span>•</span>
+                    <span>Path: <code>{{ active_info.landing_page.url_path }}</code></span>
+                    {% if active_info.activated_at %}
+                    <span>•</span>
+                    <span>Activated: {{ active_info.activated_at.strftime('%b %d, %Y at %H:%M') }}</span>
+                    {% endif %}
+                </div>
+                <div class="banner-urls">
+                    <strong>🔗 Live Landing Page URLs:</strong>
+                    <div class="url-list">
+                        {% if active_info.production_url %}
+                        <div class="url-item">
+                            <span class="url-label">Production:</span>
+                            <a href="{{ active_info.production_url }}" target="_blank" class="url-link" rel="noopener noreferrer">
+                                {{ active_info.production_url }}
+                            </a>
+                            <button class="btn-copy" data-url="{{ active_info.production_url }}" title="Copy URL">📋</button>
+                        </div>
+                        {% endif %}
+                        <div class="url-item">
+                            <span class="url-label">Local (HTTP):</span>
+                            <a href="{{ active_info.localhost_http_url }}" target="_blank" class="url-link" rel="noopener noreferrer">
+                                {{ active_info.localhost_http_url }}
+                            </a>
+                            <button class="btn-copy" data-url="{{ active_info.localhost_http_url }}" title="Copy URL">📋</button>
+                        </div>
+                        <div class="url-item">
+                            <span class="url-label">Proxy:</span>
+                            <a href="{{ active_info.proxy_url }}" target="_blank" class="url-link">
+                                http://localhost:8006{{ active_info.proxy_url }}
+                            </a>
+                            <button class="btn-copy" data-url="http://localhost:8006{{ active_info.proxy_url }}" title="Copy URL">📋</button>
+                        </div>
+                    </div>
+                    <small class="url-note">💡 Visit these URLs to test the deployed landing page. Anonymous visits will be tracked.</small>
+                </div>
+            </div>
+        </div>
+        <div class="banner-actions">
+            <a href="/landing-pages/dns-zone" class="btn btn-secondary btn-sm" download>
+                📄 Download DNS
+            </a>
+            <button class="btn btn-secondary btn-sm btn-preview" data-id="{{ active_info.landing_page.id }}">
+                👁 Preview
+            </button>
+            <button class="btn btn-warning btn-sm" id="deactivateBtn"
+                    data-campaign-status="{{ active_info.campaign.status if active_info.campaign else 'none' }}">
+                ⊗ Deactivate
+            </button>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="landing-pages-list">
         <h2>Existing Landing Pages ({{ total_pages }})</h2>
 
@@ -119,7 +187,7 @@
                             {% if lp.id == active_landing_page_id %}
                                 <button class="btn btn-sm btn-preview" data-id="{{ lp.id }}">Preview</button>
                                 <a href="/landing-pages/dns-zone" class="btn btn-sm btn-info" download>Download DNS</a>
-                                <button class="btn btn-sm btn-delete" data-id="{{ lp.id }}">Delete</button>
+                                <button class="btn btn-sm btn-delete" data-id="{{ lp.id }}" disabled title="Cannot delete active landing page. Deactivate it first.">Delete</button>
                             {% else %}
                                 <button class="btn btn-sm btn-activate" data-id="{{ lp.id }}">Activate</button>
                                 <button class="btn btn-sm btn-preview" data-id="{{ lp.id }}">Preview</button>
@@ -163,10 +231,10 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="domain">Domain</label>
-                        <input type="text" id="domain" name="domain"
-                               placeholder="e.g., phishing.example.com">
-                        <small>Optional: The domain where this page will be hosted</small>
+                        <label for="domain">Domain <span class="required">*</span></label>
+                        <input type="text" id="domain" name="domain" required
+                               placeholder="e.g., ups-be.com or phishing.example.com">
+                        <small>Required: The domain used for email links and landing page access</small>
                     </div>
                 </div>
 
@@ -225,6 +293,7 @@
                 </div>
             </form>
         </div>
+    </div>
 </main>
 
 <script src="{{ url_for('static', filename='js/theme-switcher.js') }}"></script>

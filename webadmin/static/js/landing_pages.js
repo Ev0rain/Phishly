@@ -318,4 +318,98 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     });
+
+    // === Deactivation Handler ===
+    const deactivateBtn = document.getElementById('deactivateBtn');
+    if (deactivateBtn) {
+        deactivateBtn.addEventListener('click', function () {
+            const campaignStatus = this.getAttribute('data-campaign-status');
+
+            // Check if deactivation is allowed based on campaign status
+            if (campaignStatus === 'active') {
+                alert('Cannot deactivate: Campaign is currently running. Pause the campaign first.');
+                return;
+            }
+
+            if (campaignStatus === 'scheduled') {
+                alert('Cannot deactivate: Campaign is scheduled to launch. Cancel or modify the campaign first.');
+                return;
+            }
+
+            // Confirm deactivation
+            if (!confirm('Are you sure you want to deactivate the current landing page?\n\nThe landing page deployment will remain but won\'t be actively serving traffic.')) {
+                return;
+            }
+
+            // Perform deactivation
+            fetch('/landing-pages/deactivate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to deactivate landing page. Please try again.');
+                });
+        });
+    }
+
+    // === Copy URL Button Handler ===
+    const copyButtons = document.querySelectorAll('.btn-copy');
+    copyButtons.forEach(button => {
+        button.addEventListener('click', function () {
+            const url = this.getAttribute('data-url');
+
+            // Use Clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url)
+                    .then(() => {
+                        // Show success feedback
+                        const originalText = this.textContent;
+                        this.textContent = '✓';
+                        this.style.background = 'rgba(16, 185, 129, 0.3)';
+
+                        setTimeout(() => {
+                            this.textContent = originalText;
+                            this.style.background = '';
+                        }, 2000);
+                    })
+                    .catch(err => {
+                        console.error('Failed to copy:', err);
+                        alert('Failed to copy URL. Please copy manually.');
+                    });
+            } else {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = url;
+                textArea.style.position = 'fixed';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    const originalText = this.textContent;
+                    this.textContent = '✓';
+                    setTimeout(() => {
+                        this.textContent = originalText;
+                    }, 2000);
+                } catch (err) {
+                    console.error('Fallback copy failed:', err);
+                    alert('Failed to copy URL. Please copy manually.');
+                } finally {
+                    document.body.removeChild(textArea);
+                }
+            }
+        });
+    });
 });

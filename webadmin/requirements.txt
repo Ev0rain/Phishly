@@ -38,6 +38,11 @@ celery==5.3.4             # Celery client for triggering email tasks
 python-dotenv==1.0.0
 
 # ============================================
+# HTTP Client
+# ============================================
+requests==2.32.5          # For proxy routes to phishing server
+
+# ============================================
 # Production Server
 # ============================================
-# gunicorn==21.2.0        # WSGI server for productionrequests==2.31.0
+# gunicorn==21.2.0        # WSGI server for production

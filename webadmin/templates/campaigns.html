@@ -137,6 +137,12 @@
                                             <span>⏸</span>
                                     </button>
                                     {% endif %}
+                                    {% if campaign.status == 'paused' %}
+                                        <button class="btn-icon btn-complete" data-campaign-id="{{ campaign.id }}"
+                                                title="Mark Complete">
+                                            <span>✓</span>
+                                        </button>
+                                    {% endif %}
                                     <button class="btn-icon btn-view-details" data-campaign-id="{{ campaign.id }}"
                                             title="View Details">
                                         <span>◉</span>
@@ -191,6 +197,16 @@
                         <option value="">Select a group...</option>
                         {% for group in groups %}
                         <option value="{{ group.id }}">{{ group.name }} ({{ group.size }} people)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="landingPage">Landing Page</label>
+                    <select id="landingPage" name="landing_page_id" required>
+                        <option value="">Select a landing page...</option>
+                        {% for page in landing_pages %}
+                        <option value="{{ page.id }}">{{ page.name }}</option>
                         {% endfor %}
                     </select>
                 </div>

@@ -10,13 +10,22 @@
     }
 }
 
-# Public phishing landing pages (port 443)
-# Note: In production, add proper SSL certificates
+# HTTP phishing landing pages (port 80) - for local testing
+:80 {
+    reverse_proxy phishly-phishing:8000 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto http
+    }
+}
+
+# HTTPS phishing landing pages (port 443) - for production with domain
+# Note: In production, replace :443 with your domain (e.g., ups-be.com)
 :443 {
     reverse_proxy phishly-phishing:8000 {
-                                            header_up X-Real-IP {remote_host}
-                                            header_up X-Forwarded-For {remote_host}
-                                            header_up X-Forwarded-Proto {scheme}
-                                        }
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto https
+    }
 }
 

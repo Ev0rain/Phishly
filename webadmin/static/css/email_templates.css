@@ -402,14 +402,17 @@ form {
 
 /* Preview Modal */
 .preview-modal .modal-content {
-    max-width: 900px;
-    height: 90vh;
+    max-width: 1000px;
+    width: 95%;
+    height: 95vh;
+    max-height: 95vh;
     display: flex;
     flex-direction: column;
 }
 
 .preview-content .modal-header {
     flex-shrink: 0;
+    padding: 20px 24px;
 }
 
 .preview-subject {
@@ -421,14 +424,18 @@ form {
 
 .preview-body {
     flex: 1;
-    padding: 24px;
-    overflow: hidden;
+    padding: 0 24px 24px 24px;
+    overflow: auto;
+    min-height: 600px;
+    display: flex;
+    flex-direction: column;
 }
 
 #previewFrame {
     width: 100%;
-    height: 100%;
-    border: 1px solid var(--border-color);
+    flex: 1;
+    min-height: 600px;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     background: white;
 }
@@ -478,12 +485,22 @@ form {
 
 .notification-icon {
     font-size: 20px;
+    color: #333;
+}
+
+.notification.success .notification-icon {
+    color: #10b981;
+}
+
+.notification.error .notification-icon {
+    color: #ef4444;
 }
 
 .notification-message {
     flex: 1;
     font-size: 14px;
-    color: var(--text-primary);
+    color: #333;
+    font-weight: 500;
 }
 
 /* Responsive Design */
