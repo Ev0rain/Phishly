@@ -1,7 +1,7 @@
 """
-templates Repository - Real database implementation with hybrid storage
+Templates Repository - Real database implementation.
 
-Metadata stored in database, HTML files stored on disk
+All templates stored in database after import from source library.
 """
 
 from repositories.base_repository import BaseRepository
@@ -15,23 +15,19 @@ logger = logging.getLogger(__name__)
 
 
 class TemplatesRepository(BaseRepository):
-    """Real database repository for email templates with hybrid storage"""
-
-    # Directory where IMPORTED template HTML files are stored (writable)
-    # This is different from the read-only template library at /templates
-    TEMPLATES_DIR = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "email_templates_imported"
-    )
+    """Real database repository for email templates."""
 
     # Directory where source template library is located (read-only)
-    # This is where we READ templates FROM for import
+    # This is where we READ templates FROM for import to database
     TEMPLATES_LIBRARY_DIR = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "templates", "email_templates"
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+        "templates",
+        "email_templates"
     )
 
     @staticmethod
     def get_all_templates():
-        """Return all email templates with metadata from database"""
+        """Return all email templates with metadata from database."""
         try:
             templates = (
                 db.session.query(EmailTemplate).order_by(EmailTemplate.created_at.desc()).all()
@@ -76,7 +72,7 @@ class TemplatesRepository(BaseRepository):
 
     @staticmethod
     def get_template_by_id(template_id):
-        """Return a single template by ID"""
+        """Return a single template by ID."""
         try:
             template = (
                 db.session.query(EmailTemplate).filter(EmailTemplate.id == template_id).first()
@@ -118,115 +114,27 @@ class TemplatesRepository(BaseRepository):
     @staticmethod
     def get_template_html(template_id):
         """
-        Read the HTML content of a template.
-        Primary source: database body_html field (for worker compatibility)
-        Fallback: file system, then mock template
+        Read the HTML content of a template from database.
+
+        Templates are stored in database after import from /templates library.
         """
         try:
-            # Try database first (primary source for worker)
             template = (
-                db.session.query(EmailTemplate).filter(EmailTemplate.id == template_id).first()
+                db.session.query(EmailTemplate)
+                .filter(EmailTemplate.id == template_id)
+                .first()
             )
 
             if template and template.body_html:
                 return template.body_html
 
-            # Fallback to file system
-            filename = f"{template_id}.html"
-            filepath = os.path.join(TemplatesRepository.TEMPLATES_DIR, filename)
-
-            if os.path.exists(filepath):
-                with open(filepath, "r", encoding="utf-8") as f:
-                    return f.read()
-
-            # Final fallback to mock template
-            logger.warning(f"Template {template_id} not found in DB or file system")
-            return TemplatesRepository._get_mock_html()
+            # Template not found in database
+            logger.error(f"Template {template_id} not found in database")
+            return f"<p>Error: Template {template_id} not found in database</p>"
 
         except Exception as e:
             logger.error(f"Error reading template {template_id}: {e}")
             return f"<p>Error reading template: {str(e)}</p>"
-
-    @staticmethod
-    def _get_mock_html():
-        """Return mock HTML content for templates"""
-        # Generic phishing email template
-        return """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Email Template</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-            border-radius: 8px 8px 0 0;
-        }
-        .content {
-            background: white;
-            padding: 30px;
-            border: 1px solid #e5e7eb;
-            border-top: none;
-        }
-        .btn {
-            display: inline-block;
-            background: #2563eb;
-            color: white;
-            padding: 12px 24px;
-            text-decoration: none;
-            border-radius: 6px;
-            margin-top: 20px;
-        }
-        .footer {
-            background: #f9fafb;
-            padding: 20px;
-            text-align: center;
-            font-size: 12px;
-            color: #6b7280;
-            border: 1px solid #e5e7eb;
-            border-top: none;
-            border-radius: 0 0 8px 8px;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Important Notice</h1>
-    </div>
-    <div class="content">
-        <p>Dear Employee,</p>
-
-        <p>We need your immediate attention regarding an important matter that
-        requires your verification.</p>
-
-        <p>Please click the button below to complete the required action within
-        the next 24 hours to avoid any disruption to your account.</p>
-
-        <a href="{{tracking_link}}" class="btn">Verify Now</a>
-
-        <p>If you have any questions, please contact our support team.</p>
-
-        <p>Best regards,<br>IT Security Team</p>
-    </div>
-    <div class="footer">
-        <p>This is an automated message. Please do not reply to this email.</p>
-        <p>&copy; 2024 Company Name. All rights reserved.</p>
-    </div>
-</body>
-</html>
-"""
 
     @staticmethod
     def save_template(
@@ -239,7 +147,9 @@ class TemplatesRepository(BaseRepository):
         default_landing_page_id=None,
     ):
         """
-        Save a new template (metadata to DB, HTML to disk)
+        Save a new template to database.
+
+        HTML content from /templates library is imported and stored in database.
 
         Args:
             name: Template name
@@ -254,33 +164,23 @@ class TemplatesRepository(BaseRepository):
             tuple: (success: bool, message: str, template_id: int or None)
         """
         try:
-            # Create database record
+            # Create database record with HTML content
             new_template = EmailTemplate(
                 name=name,
                 subject=subject,
                 from_email=from_email,
                 from_name=from_name,
-                body_html=html_content,  # Store HTML in database for worker access
+                body_html=html_content,
                 created_by_id=created_by_id,
                 default_landing_page_id=default_landing_page_id,
                 created_at=datetime.utcnow(),
             )
             db.session.add(new_template)
-            db.session.flush()  # Get ID without committing
-
-            # Ensure templates directory exists
-            os.makedirs(TemplatesRepository.TEMPLATES_DIR, exist_ok=True)
-
-            # Save HTML file using template ID
-            filename = f"{new_template.id}.html"
-            filepath = os.path.join(TemplatesRepository.TEMPLATES_DIR, filename)
-
-            with open(filepath, "w", encoding="utf-8") as f:
-                f.write(html_content)
-
-            # Commit database transaction
             db.session.commit()
 
+            logger.info(
+                f"Saved email template {new_template.id}: {name}"
+            )
             return True, "Template saved successfully", new_template.id
 
         except Exception as e:
@@ -290,7 +190,7 @@ class TemplatesRepository(BaseRepository):
 
     @staticmethod
     def get_all_landing_pages():
-        """Return all landing pages for template selection dropdown"""
+        """Return all landing pages for template selection dropdown."""
         try:
             landing_pages = db.session.query(LandingPage).order_by(LandingPage.name.asc()).all()
 
@@ -309,7 +209,7 @@ class TemplatesRepository(BaseRepository):
 
     @staticmethod
     def get_available_tags():
-        """Return list of common tags for templates"""
+        """Return list of common tags for templates."""
         return [
             "executive",
             "urgent",
@@ -335,7 +235,7 @@ class TemplatesRepository(BaseRepository):
     @staticmethod
     def delete_template(template_id):
         """
-        Delete a template (from both database and disk)
+        Delete a template from database.
 
         Args:
             template_id: ID of the template to delete
@@ -345,24 +245,21 @@ class TemplatesRepository(BaseRepository):
         """
         try:
             template = (
-                db.session.query(EmailTemplate).filter(EmailTemplate.id == template_id).first()
+                db.session.query(EmailTemplate)
+                .filter(EmailTemplate.id == template_id)
+                .first()
             )
 
             if not template:
                 return False, "Template not found"
 
-            # Delete the HTML file from disk
-            filename = f"{template_id}.html"
-            filepath = os.path.join(TemplatesRepository.TEMPLATES_DIR, filename)
-
-            if os.path.exists(filepath):
-                os.remove(filepath)
-                logger.info(f"Deleted template file: {filepath}")
+            template_name = template.name
 
             # Delete from database
             db.session.delete(template)
             db.session.commit()
 
+            logger.info(f"Deleted email template {template_id}: {template_name}")
             return True, "Template deleted successfully"
 
         except Exception as e:
@@ -427,7 +324,7 @@ class TemplatesRepository(BaseRepository):
     @staticmethod
     def list_available_template_files():
         """
-        List all available email template .html files in templates/email_templates/
+        List all available email template .html files.
 
         Returns:
             List of template file dictionaries with keys:
@@ -483,7 +380,7 @@ class TemplatesRepository(BaseRepository):
     @staticmethod
     def get_template_file_content(filename):
         """
-        Read the content of a template file from the source library
+        Read the content of a template file from the source library.
 
         Args:
             filename: Template filename (e.g., "01_urgent_password_reset.html")

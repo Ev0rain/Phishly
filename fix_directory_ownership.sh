@@ -21,22 +21,6 @@ fi
 echo "Setting ownership to: $TARGET_USER ($USER_ID:$GROUP_ID)"
 echo ""
 
-# Fix webadmin/email_templates_imported if it's root-owned
-if [ -d "webadmin/email_templates_imported" ]; then
-    CURRENT_OWNER=$(stat -c '%u:%g' webadmin/email_templates_imported)
-    if [ "$CURRENT_OWNER" != "$USER_ID:$GROUP_ID" ]; then
-        echo "Fixing: webadmin/email_templates_imported (currently $CURRENT_OWNER)"
-        chown -R "$USER_ID:$GROUP_ID" webadmin/email_templates_imported
-        echo "✅ Fixed"
-    else
-        echo "✓ webadmin/email_templates_imported already has correct ownership"
-    fi
-else
-    echo "✓ Creating: webadmin/email_templates_imported"
-    mkdir -p webadmin/email_templates_imported
-    chown "$USER_ID:$GROUP_ID" webadmin/email_templates_imported
-fi
-
 # Fix webadmin/dns_zones if needed
 if [ -d "webadmin/dns_zones" ]; then
     CURRENT_OWNER=$(stat -c '%u:%g' webadmin/dns_zones)
@@ -56,14 +40,6 @@ fi
 # Create .gitkeep files if they don't exist
 echo ""
 echo "Creating .gitkeep files..."
-
-if [ ! -f "webadmin/email_templates_imported/.gitkeep" ]; then
-    touch webadmin/email_templates_imported/.gitkeep
-    chown "$USER_ID:$GROUP_ID" webadmin/email_templates_imported/.gitkeep
-    echo "✅ Created webadmin/email_templates_imported/.gitkeep"
-else
-    echo "✓ webadmin/email_templates_imported/.gitkeep exists"
-fi
 
 if [ ! -f "webadmin/dns_zones/.gitkeep" ]; then
     touch webadmin/dns_zones/.gitkeep

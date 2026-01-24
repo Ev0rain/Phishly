@@ -385,75 +385,100 @@ PHISHING_DOMAIN=phishing.example.com
 
 ### Email Templates
 
-Email templates define the content of phishing emails sent to targets. Phishly uses a hybrid storage system for email templates:
+Email templates define the content of phishing emails sent to targets.
 
 #### Storage System
 
-**Database Storage** (Metadata):
-- Template name, subject, sender info
-- Default landing page assignment
-- Creation/update timestamps
-- Stored in PostgreSQL `email_templates` table
-
-**File Storage** (HTML Content):
-- Location: `webadmin/email_templates_imported/{template_id}.html`
-- Contains full HTML email content with Jinja2 variables
-- Allows for complex formatting and styling
+**Database Storage** (Complete Template):
+- Full template stored in PostgreSQL `email_templates` table
+- Includes: metadata (name, subject, sender) + HTML content
+- Templates are independent of source files after import
+- Ensures templates remain available regardless of file system changes
 
 **Template Library** (Source Templates):
-- Location: `templates/email_templates/`
-- Pre-built templates ready to import
+- Location: `/templates/email_templates/`
+- Pre-built HTML templates ready to import
+- Read-only source files, not modified by system
 - Not tracked in git (contains sensitive phishing content)
+
+#### How Email Templates Work
+
+1. **Before Import**: Templates exist as `.html` files in `/templates/email_templates/`
+2. **Import Process**: When you create a template in WebAdmin:
+   - HTML content is read from source file
+   - Complete template (metadata + HTML) is saved to database
+   - Template becomes independent of source file
+3. **After Import**: Template lives entirely in database
+4. **Deletion**: Removing template in WebAdmin deletes it from database only
 
 #### Importing Email Templates
 
-1. **Place HTML template in library**:
+1. **Add source template to library**:
    ```bash
-   # Add your template to the library
-   cp my_template.html templates/email_templates/
+   # Add your template HTML file to the library
+   cp my_phishing_template.html /templates/email_templates/
    ```
 
 2. **Import via WebAdmin**:
    - Navigate to **Templates** page
    - Click "Import Template"
    - Select template file from dropdown
-   - Configure name, subject, sender info
-   - Assign default landing page (optional)
+   - Configure metadata:
+     - Template name
+     - Email subject line
+     - Sender email and name
+     - Default landing page (optional)
    - Click "Import"
 
-3. **Storage process**:
-   - Metadata saved to database
-   - HTML content saved to `webadmin/email_templates_imported/{id}.html`
+3. **What happens**:
+   - HTML content read from `/templates/email_templates/{filename}`
+   - Complete template saved to database (`email_templates.body_html`)
+   - Source file in `/templates` remains unchanged
    - Template immediately available for campaigns
 
 #### Template Variables
 
-Email templates support Jinja2 template variables:
+Email templates support Jinja2 template variables for personalization:
 
 ```html
-<!-- Available variables -->
+<!-- Target Information -->
 {{ first_name }}          <!-- Target's first name -->
 {{ last_name }}           <!-- Target's last name -->
 {{ email }}               <!-- Target's email address -->
 {{ position }}            <!-- Target's job position -->
 {{ department }}          <!-- Target's department -->
-{{ tracking_token }}      <!-- Unique tracking token -->
-{{ tracking_pixel }}      <!-- Automatically injected -->
-{{ phishing_link }}       <!-- Link to landing page with token -->
+
+<!-- Tracking & Links -->
+{{ tracking_token }}      <!-- Unique tracking token (automatically added) -->
+{{ tracking_pixel }}      <!-- Tracking pixel (automatically injected) -->
+{{ phishing_link }}       <!-- Link to landing page with tracking token -->
 ```
 
-**Example usage**:
+**Example template**:
 ```html
-<p>Dear {{ first_name }} {{ last_name }},</p>
-<p>Your department ({{ department }}) requires immediate action.</p>
-<a href="{{ phishing_link }}">Click here to verify</a>
+<!DOCTYPE html>
+<html>
+<body>
+    <p>Dear {{ first_name }} {{ last_name }},</p>
+    <p>The {{ department }} department requires your immediate attention.</p>
+    <p><a href="{{ phishing_link }}">Click here to verify your account</a></p>
+    <p>If you have questions, contact us at support@company.com</p>
+</body>
+</html>
 ```
 
 #### Editing Templates
 
-- **Metadata only**: Use WebAdmin "Edit" button (name, subject, sender)
-- **HTML content**: Edit the file in `webadmin/email_templates_imported/{id}.html` directly
-- **Changes apply**: Immediately to new campaigns (existing campaigns use original content)
+- **Metadata**: Use WebAdmin "Edit" button to change:
+  - Template name
+  - Email subject
+  - Sender email and name
+  - Default landing page assignment
+- **HTML Content**: Cannot be edited after import
+  - To change HTML, create new template from updated source file
+  - Or directly update `email_templates.body_html` in database
+
+**Note**: Changes to metadata apply to future campaigns. Existing campaigns use the original settings.
 
 ### Landing Pages
 

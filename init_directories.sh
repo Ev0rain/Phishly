@@ -16,7 +16,6 @@ echo ""
 
 # Create directories that containers will write to
 DIRECTORIES=(
-    "webadmin/email_templates_imported"
     "webadmin/dns_zones"
     "templates/email_templates"
     "templates/landing_pages"
@@ -55,7 +54,6 @@ echo "Creating .gitkeep files to maintain directory structure..."
 
 # Create .gitkeep files
 GITKEEP_DIRS=(
-    "webadmin/email_templates_imported"
     "webadmin/dns_zones"
 )
 
@@ -73,10 +71,10 @@ echo ""
 echo "Setting proper permissions..."
 
 # Set directory permissions (755 = rwxr-xr-x)
-find webadmin/email_templates_imported webadmin/dns_zones templates -type d -exec chmod 755 {} \; 2>/dev/null || true
+find webadmin/dns_zones templates -type d -exec chmod 755 {} \; 2>/dev/null || true
 
 # Set file permissions (644 = rw-r--r--)
-find webadmin/email_templates_imported webadmin/dns_zones -type f -exec chmod 644 {} \; 2>/dev/null || true
+find webadmin/dns_zones -type f -exec chmod 644 {} \; 2>/dev/null || true
 
 echo ""
 echo "✅ Directory structure initialized successfully!"
