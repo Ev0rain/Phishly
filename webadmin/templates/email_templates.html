@@ -150,13 +150,28 @@
                 
                 <div class="form-group">
                     <label for="templateSubject">Email Subject <span class="required">*</span></label>
-                    <input type="text" id="templateSubject" name="subject" required 
+                    <input type="text" id="templateSubject" name="subject" required
                            placeholder="e.g., Urgent: Action Required">
                 </div>
-                
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="templateFromEmail">Sender Email <span class="required">*</span></label>
+                        <input type="email" id="templateFromEmail" name="from_email" required
+                               placeholder="e.g., hr@company.com">
+                        <small class="form-hint">Must be a verified domain in Mailjet</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="templateFromName">Sender Name <span class="required">*</span></label>
+                        <input type="text" id="templateFromName" name="from_name" required
+                               placeholder="e.g., HR Department">
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label for="templateTags">Tags</label>
-                    <input type="text" id="templateTags" name="tags" 
+                    <input type="text" id="templateTags" name="tags"
                            placeholder="e.g., executive, urgent, financial (comma-separated)">
                     <small class="form-hint">Common tags: executive, urgent, financial, it-security, hr, support</small>
                 </div>

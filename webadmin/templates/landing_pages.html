@@ -264,26 +264,12 @@
                     <h3>Behavior Settings</h3>
 
                     <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="capture_credentials" name="capture_credentials" checked>
-                            Capture credentials (username/password)
-                        </label>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="capture_form_data" name="capture_form_data" checked>
-                            Capture all form data
-                        </label>
-                    </div>
-
-                    <div class="form-group">
                         <label for="redirect_url">Redirect URL (after submission) *</label>
                         <input type="text" id="redirect_url" name="redirect_url"
                                value="/awareness"
                                placeholder="/awareness">
-                        <small>Where to redirect users after they submit credentials (default: /awareness for info
-                            page)</small>
+                        <small>Where to redirect users after form submission (default: /awareness for info page).
+                            Note: Only submission events are recorded, not actual credentials.</small>
                     </div>
                 </div>
 

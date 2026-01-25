@@ -32,9 +32,11 @@ from database import (
     db_manager,
     get_campaign_target_by_token,
     get_landing_page_by_url_path,
+    get_active_landing_page_config,
     log_event,
     update_campaign_target_status,
     create_form_submission,
+    Campaign,
 )
 
 # Configure logging
@@ -122,11 +124,9 @@ def get_active_campaign_id() -> int | None:
     try:
         with db_manager.get_session() as session:
             # Query for active landing page configuration
-            from database import get_active_landing_page_config
             config = get_active_landing_page_config(session)
-            if config and config.active_landing_page:
+            if config and config.active_landing_page_id:
                 # Get campaign using this landing page
-                from db.models import Campaign
                 campaign = session.query(Campaign).filter(
                     Campaign.landing_page_id == config.active_landing_page_id,
                     Campaign.status == 'active'
@@ -200,6 +200,14 @@ def find_cached_landing_page(url_path: str) -> tuple[Path, dict] | None:
                     index_file = campaign_dir / "index.html"
                     if index_file.exists():
                         return campaign_dir, {"campaign_id": active_campaign_id}
+
+                # FALLBACK: If path not found, serve from campaign root
+                # This handles cases where url_path like "/en/home" is configured
+                # but files are deployed to campaign root (not a subdirectory)
+                root_index = campaign_dir / "index.html"
+                if root_index.exists():
+                    logger.info(f"Path '{normalized_path}' not found, falling back to campaign root")
+                    return campaign_dir, {"campaign_id": active_campaign_id}
         else:
             # No active campaign - check for "active" deployment (for testing without campaign)
             active_dir = CAMPAIGN_DEPLOYMENTS_DIR / "active"
@@ -220,6 +228,12 @@ def find_cached_landing_page(url_path: str) -> tuple[Path, dict] | None:
                     index_file = active_dir / "index.html"
                     if index_file.exists():
                         return active_dir, {"source": "active"}
+
+                # FALLBACK: If path not found, serve from active root
+                root_index = active_dir / "index.html"
+                if root_index.exists():
+                    logger.info(f"Path '{normalized_path}' not found, falling back to active root")
+                    return active_dir, {"source": "active"}
 
     # LEGACY: Check active cache
     active_cache_dir = CACHE_DIR / "active"

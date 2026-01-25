@@ -222,6 +222,8 @@ class EventType(Base):
     id = Column(BigInteger, primary_key=True)
     name = Column(String(100))  # email_sent, email_opened, link_clicked, form_submitted
     description = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class Event(Base):

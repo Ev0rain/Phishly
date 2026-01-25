@@ -86,10 +86,20 @@ def import_template():
     template_filename = request.form.get("template_file")
     # tags_string = request.form.get("tags", "")  # Not currently used
 
+    # Get sender information
+    from_email = request.form.get("from_email", "").strip()
+    from_name = request.form.get("from_name", "").strip()
+
     # Validate required fields
     if not name or not subject:
         return (
             jsonify({"success": False, "message": "Name and subject are required"}),
+            400,
+        )
+
+    if not from_email or not from_name:
+        return (
+            jsonify({"success": False, "message": "Sender email and name are required for Mailjet verification"}),
             400,
         )
 
@@ -105,10 +115,6 @@ def import_template():
             jsonify({"success": False, "message": html_content}),  # html_content contains error message
             400,
         )
-
-    # Get sender information (use defaults for now)
-    from_email = request.form.get("from_email", "noreply@company.com")
-    from_name = request.form.get("from_name", "Company Name")
 
     # Get default landing page ID (optional)
     default_landing_page_id = request.form.get("default_landing_page_id")

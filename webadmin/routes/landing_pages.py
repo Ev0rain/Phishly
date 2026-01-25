@@ -109,8 +109,9 @@ def create_landing_page():
     html_content = request.form.get("html_content", "").strip()
     css_content = request.form.get("css_content", "").strip()
     js_content = request.form.get("js_content", "").strip()
-    capture_credentials = request.form.get("capture_credentials") == "on"
-    capture_form_data = request.form.get("capture_form_data") == "on"
+    # Credential capture disabled for confidentiality - only track submission events
+    capture_credentials = False
+    capture_form_data = False
     redirect_url = request.form.get("redirect_url", "").strip()
 
     # Handle file upload if provided (legacy mode)
@@ -181,8 +182,9 @@ def update_landing_page(landing_page_id):
     html_content = request.form.get("html_content", "").strip()
     css_content = request.form.get("css_content", "").strip()
     js_content = request.form.get("js_content", "").strip()
-    capture_credentials = request.form.get("capture_credentials") == "on"
-    capture_form_data = request.form.get("capture_form_data") == "on"
+    # Credential capture disabled for confidentiality - only track submission events
+    capture_credentials = False
+    capture_form_data = False
     redirect_url = request.form.get("redirect_url", "").strip()
 
     # Handle file upload if provided

@@ -20,11 +20,10 @@ services:
       - caddy_config:/config
 
       # Mount SSL certificates for phishing domains
-      # Format: /path/on/host/letsencrypt/school-lgk.lu:/ssl/phish/school-lgk.lu:ro
-      - ./ssl/phish:/ssl/phish:ro
+      - ../certs/ups-be.com:/ssl/phish/ups-be.com:ro
 
       # Mount self-signed certificate for admin GUI
-      - ./ssl/webadmin:/ssl/webadmin:ro
+      - ../certs/phishly.btslgk.lu:/ssl/webadmin:ro
     networks:
       - net_public
       - net_admin

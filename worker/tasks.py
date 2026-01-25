@@ -7,6 +7,7 @@ tracking campaign status, and processing results.
 
 import os
 import logging
+import smtplib
 from datetime import datetime
 from celery import Celery
 
@@ -66,8 +67,8 @@ email_sender = get_email_sender(mock=os.getenv("SMTP_MOCK", "false").lower() == 
 @app.task(
     name="tasks.send_phishing_email",
     bind=True,
-    autoretry_for=(Exception,),
-    retry_kwargs={"max_retries": 3, "countdown": 60},
+    max_retries=3,
+    default_retry_delay=60,
 )
 def send_phishing_email(self, campaign_id: int, target_id: int) -> dict:
     """
@@ -97,8 +98,26 @@ def send_phishing_email(self, campaign_id: int, target_id: int) -> dict:
     )
 
     email_job_id = None
+    email_already_sent = False  # Track if we've sent the email in this attempt
+    campaign_target_id = None  # Store ID to avoid detached object issues
+    target_email = None  # Store for logging after session closes
 
     try:
+        # Step 0: Idempotency check - skip if already sent
+        with db_manager.get_session() as session:
+            campaign_target = get_campaign_target(session, campaign_id, target_id)
+            if campaign_target and campaign_target.status == "sent":
+                logger.info(
+                    f"Task {task_id} skipped: email already sent for "
+                    f"campaign_id={campaign_id}, target_id={target_id}"
+                )
+                return {
+                    "status": "skipped",
+                    "campaign_id": campaign_id,
+                    "target_id": target_id,
+                    "message": "Email already sent (idempotency check)",
+                }
+
         # Step 1: Query database for campaign and target details
         with db_manager.get_session() as session:
             # Get campaign details
@@ -130,17 +149,21 @@ def send_phishing_email(self, campaign_id: int, target_id: int) -> dict:
             if not landing_page:
                 raise ValueError(f"No landing page found for campaign {campaign_id}")
 
+            # Store IDs before they might become detached
+            campaign_target_id = campaign_target.id
+            target_email = target.email
+
             # Create email job record
             email_job = create_email_job(
                 session,
-                campaign_target_id=campaign_target.id,
+                campaign_target_id=campaign_target_id,
                 celery_task_id=task_id,
                 scheduled_at=datetime.utcnow(),
             )
             email_job_id = email_job.id
 
             logger.info(
-                f"Created email job {email_job_id} for campaign_target {campaign_target.id}"
+                f"Created email job {email_job_id} for campaign_target {campaign_target_id}"
             )
 
             # Get tracking token (or generate if not exists)
@@ -171,72 +194,123 @@ def send_phishing_email(self, campaign_id: int, target_id: int) -> dict:
                 subject_template=email_template.subject, variables=template_vars
             )
 
-            logger.info(f"Email rendered for {target.email}: subject='{subject}'")
+            logger.info(f"Email rendered for {target_email}: subject='{subject}'")
+
+            # Store values needed after session closes (avoid detached object issues)
+            from_email = email_template.from_email
+            from_name = email_template.from_name
+            template_id = email_template.id
+            template_name = email_template.name or ""
 
             # Step 3: Update email job status to 'sending'
             update_email_job_status(session, email_job_id, status="sending")
 
         # Step 4: Send email via SMTP (outside database transaction)
-        email_sent = email_sender.send_email(
-            to_email=target.email,
-            subject=subject,
-            html_content=html_content,
-            text_content=text_content,
-            from_email=email_template.from_email,
-            from_name=email_template.from_name,
-            reply_to=email_template.from_email,
-            custom_headers={
-                "X-Campaign-ID": str(campaign_id),
-                "X-Target-ID": str(target_id),
-                "X-Tracking-Token": tracking_token,
-                "X-Template-ID": str(email_template.id),
-                "X-Template-Name": (email_template.name or "")[:50],
-                "X-Phishly-Version": "1.0",
-            },
-        )
+        # This is the critical section - once email is sent, we should NOT retry
+        try:
+            email_sent = email_sender.send_email(
+                to_email=target_email,
+                subject=subject,
+                html_content=html_content,
+                text_content=text_content,
+                from_email=from_email,
+                from_name=from_name,
+                reply_to=from_email,
+                custom_headers={
+                    "X-Campaign-ID": str(campaign_id),
+                    "X-Target-ID": str(target_id),
+                    "X-Tracking-Token": tracking_token,
+                    "X-Template-ID": str(template_id),
+                    "X-Template-Name": template_name[:50],
+                    "X-Phishly-Version": "1.0",
+                },
+            )
 
-        if not email_sent:
-            raise Exception("Email sending failed (returned False)")
+            if not email_sent:
+                raise smtplib.SMTPException("Email sending failed (returned False)")
+
+            # Mark that email was successfully sent - do NOT retry after this point
+            email_already_sent = True
+
+        except smtplib.SMTPException as smtp_error:
+            # SMTP errors are retryable (network issues, server unavailable, etc.)
+            logger.warning(f"SMTP error (will retry): {smtp_error}")
+            raise self.retry(exc=smtp_error)
 
         # Step 5: Update database with success status
         with db_manager.get_session() as session:
             # Update email job status
-            update_email_job_status(session, email_job_id, status="sent", sent_at=datetime.utcnow())
+            logger.debug(f"Updating email job {email_job_id} status to 'sent'")
+            if not update_email_job_status(session, email_job_id, status="sent", sent_at=datetime.utcnow()):
+                logger.warning(f"Email job {email_job_id} not found for status update")
 
-            # Update campaign target status
-            campaign_target = get_campaign_target(session, campaign_id, target_id)
-            update_campaign_target_status(session, campaign_target.id, status="sent")
+            # Update campaign target status (use stored ID, no need to re-query)
+            logger.debug(f"Updating campaign_target {campaign_target_id} status to 'sent'")
+            if not update_campaign_target_status(session, campaign_target_id, status="sent"):
+                logger.warning(f"Campaign target {campaign_target_id} not found for status update")
 
             # Log email_sent event
+            logger.debug(f"Logging email_sent event for campaign_target {campaign_target_id}")
             log_event(
                 session,
-                campaign_target_id=campaign_target.id,
+                campaign_target_id=campaign_target_id,
                 event_type_name="email_sent",
                 metadata=f'{{"task_id": "{task_id}"}}',
             )
+            logger.debug("All DB updates completed successfully")
 
         # Build success result
         result = {
             "status": "sent",
             "campaign_id": campaign_id,
             "target_id": target_id,
-            "campaign_target_id": campaign_target.id,
+            "campaign_target_id": campaign_target_id,
             "email_job_id": email_job_id,
             "task_id": task_id,
-            "to_email": target.email,
+            "to_email": target_email,
             "subject": subject,
             "tracking_token": tracking_token,
             "sent_at": datetime.utcnow().isoformat(),
             "message": "Email sent successfully",
         }
 
-        logger.info(f"Task {task_id} completed successfully: {target.email}")
+        logger.info(f"Task {task_id} completed successfully: {target_email}")
         return result
 
     except Exception as e:
         logger.error(f"Task {task_id} failed: {str(e)}", exc_info=True)
 
-        # Update database with failure status
+        # If email was already sent successfully, do NOT retry - just log the DB error
+        if email_already_sent:
+            logger.warning(
+                f"Task {task_id}: Email was sent successfully but post-send DB update failed. "
+                f"NOT retrying to avoid duplicate emails. Error: {e}"
+            )
+            # Try to update status to 'sent' despite the error
+            try:
+                with db_manager.get_session() as session:
+                    if email_job_id:
+                        update_email_job_status(
+                            session, email_job_id, status="sent", sent_at=datetime.utcnow()
+                        )
+                    if campaign_target_id:
+                        update_campaign_target_status(session, campaign_target_id, status="sent")
+                logger.info(f"Recovery DB update succeeded for campaign_target {campaign_target_id}")
+            except Exception as recovery_error:
+                logger.error(f"Recovery DB update also failed: {recovery_error}")
+
+            # Return success since email WAS sent
+            return {
+                "status": "sent",
+                "campaign_id": campaign_id,
+                "target_id": target_id,
+                "email_job_id": email_job_id,
+                "task_id": task_id,
+                "message": "Email sent (DB update had issues but recovered)",
+                "warning": str(e),
+            }
+
+        # Email was NOT sent - update status to failed and allow retry
         if email_job_id:
             try:
                 with db_manager.get_session() as session:
@@ -246,7 +320,7 @@ def send_phishing_email(self, campaign_id: int, target_id: int) -> dict:
             except Exception as db_error:
                 logger.error(f"Failed to update email job status: {db_error}")
 
-        # Re-raise exception for Celery retry mechanism
+        # Re-raise exception for Celery retry mechanism (only if email wasn't sent)
         raise
 
 

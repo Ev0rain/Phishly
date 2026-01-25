@@ -16,7 +16,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -46,7 +46,7 @@ services:
     command: redis-server /usr/local/etc/redis/redis.conf
 
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
 
     volumes:
       - redis_data:/data
@@ -72,13 +72,17 @@ services:
       target: development  # Use 'production' for production builds
     container_name: phishly-webadmin
     restart: unless-stopped
-    user: "1000:1000"  # Run as host user to prevent root ownership of files
+    # Entrypoint starts as root to fix volume permissions, then drops to PUID:PGID
 
     # No direct port exposure - accessed through reverse proxy only
     expose:
       - "8006"
 
     environment:
+      # User/Group IDs for volume permissions (defaults to 1000:1000)
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+
       # Flask Configuration
       FLASK_APP: app.py
       FLASK_DEBUG: ${FLASK_DEBUG:-True}
@@ -250,10 +254,10 @@ services:
       - caddy_config:/config
 
       # Mount SSL certificates for phishing domains
-      - ./reverse-proxy/ssl/phish:/ssl/phish:ro
+      - ./certs/ups-be.com:/ssl/phish/ups-be.com:ro
 
       # Mount self-signed certificate for admin GUI
-      - ./reverse-proxy/ssl/webadmin:/ssl/webadmin:ro
+      - ./certs/phishly.btslgk.lu:/ssl/webadmin:ro
 
     networks:
       - net_public

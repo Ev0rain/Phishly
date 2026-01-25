@@ -1,31 +1,50 @@
-# Phishly Reverse Proxy Configuration - Development Mode
-# Simplified configuration without SSL certificates for local testing
+# Phishly Reverse Proxy Configuration
+# This Caddyfile routes traffic between public phishing pages and internal admin GUI
+# while enforcing network-based access control
 
-# Internal admin GUI (localhost:8006)
-:8006 {
-    # Forward to webadmin container
-    reverse_proxy phishly-webadmin:8006 {
-        # Docker DNS will resolve to the container
-        header_up X-Real-IP {remote_host}
-    }
+# Global options
+{
+    # Disable admin API for security
+    admin off
+    # Disable automatic HTTPS (we use our own certs)
+    auto_https off
 }
 
-# HTTP phishing landing pages (port 80) - for local testing
+# HTTP fallback for local testing (port 80)
 :80 {
     reverse_proxy phishly-phishing:8000 {
         header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto http
     }
 }
 
-# HTTPS phishing landing pages (port 443) - for production with domain
-# Note: In production, replace :443 with your domain (e.g., ups-be.com)
-:443 {
+# Public phishing landing pages (ups-be.com + subdomains)
+ups-be.com, *.ups-be.com {
+    # Use certificates mounted from host
+    tls /ssl/phish/ups-be.com/fullchain.pem /ssl/phish/ups-be.com/privkey.pem
+
+    # Forward to phishing server (IP blocking temporarily disabled for testing)
     reverse_proxy phishly-phishing:8000 {
         header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto https
     }
 }
 
+# Internal admin GUI (phishly.btslgk.lu:8006)
+# Only allow access from private networks (school LAN/VPN)
+phishly.btslgk.lu:8006 {
+    # Use self-signed certificate mounted from host
+    tls /ssl/webadmin/cert.pem /ssl/webadmin/key.pem
+
+    # Block public networks (allow only RFC1918 + IPv6 ULA + localhost)
+    @public_networks not remote_ip 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 fc00::/7 127.0.0.1/8
+
+    handle @public_networks {
+        abort
+    }
+
+    # Default handler - forward to webadmin
+    handle {
+        reverse_proxy phishly-webadmin:8006 {
+            header_up X-Real-IP {remote_host}
+        }
+    }
+}

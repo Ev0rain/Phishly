@@ -24,6 +24,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     Boolean,
+    text,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, Session
@@ -139,6 +140,22 @@ class FormSubmission(Base):
     campaign_target = relationship("CampaignTarget")
 
 
+class ActiveConfiguration(Base):
+    """Singleton table for active landing page configuration."""
+
+    __tablename__ = "active_configuration"
+
+    id = Column(BigInteger, primary_key=True)
+    active_landing_page_id = Column(BigInteger, ForeignKey("landing_pages.id"))
+    phishing_domain = Column(String(255))
+    public_ip = Column(String(45))
+    activated_at = Column(DateTime)
+    activated_by_id = Column(BigInteger)
+    dns_zone_file_path = Column(String(500))
+
+    active_landing_page = relationship("LandingPage")
+
+
 # ============================================
 # Database Connection
 # ============================================
@@ -191,7 +208,7 @@ class DatabaseManager:
         """Test database connection."""
         try:
             with self.get_session() as session:
-                session.execute("SELECT 1")
+                session.execute(text("SELECT 1"))
             return True
         except Exception as e:
             logger.error(f"Database connection test failed: {e}")
@@ -400,6 +417,16 @@ def create_form_submission(
     session.add(submission)
     session.flush()
     return submission
+
+
+def get_active_landing_page_config(session: Session) -> Optional[ActiveConfiguration]:
+    """
+    Get the active landing page configuration.
+
+    Returns:
+        ActiveConfiguration object or None if not found
+    """
+    return session.query(ActiveConfiguration).filter(ActiveConfiguration.id == 1).first()
 
 
 # Create global database manager instance

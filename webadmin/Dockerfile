@@ -21,6 +21,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Stage 2: Development image
 FROM base as development
 
+# Install gosu for dropping privileges
+RUN apt-get update && apt-get install -y --no-install-recommends gosu \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy requirements first (better layer caching)
 COPY requirements.txt .
 
@@ -28,17 +32,35 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
+# Create app user (same UID as host user for bind mount compatibility)
+RUN useradd -m -u 1000 phishly
+
 # Copy application code
 COPY . .
 
+# Copy and set up entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Create writable directories with correct ownership
+RUN mkdir -p /app/dns_zones /app/shared_cache /app/campaign_landing_pages \
+    && chown -R phishly:phishly /app
+
 # Expose port
 EXPOSE 8006
+
+# Entrypoint handles permission fixing and drops to app user
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Run Flask development server
 CMD ["python", "app.py"]
 
 # Stage 3: Production image
 FROM base as production
+
+# Install gosu for dropping privileges
+RUN apt-get update && apt-get install -y --no-install-recommends gosu \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first
 COPY requirements.txt .
@@ -55,8 +77,13 @@ RUN useradd -m -u 1000 phishly && \
 # Copy application code
 COPY --chown=phishly:phishly . .
 
-# Switch to non-root user
-USER phishly
+# Copy and set up entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Create writable directories with correct ownership
+RUN mkdir -p /app/dns_zones /app/shared_cache /app/campaign_landing_pages \
+    && chown -R phishly:phishly /app
 
 # Expose port
 EXPOSE 8006
@@ -64,6 +91,9 @@ EXPOSE 8006
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8006/health').read()" || exit 1
+
+# Entrypoint handles permission fixing and drops to app user
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Run with Gunicorn (production WSGI server)
 CMD ["gunicorn", "--bind", "0.0.0.0:8006", "--workers", "4", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "app:create_app()"]
