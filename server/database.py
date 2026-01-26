@@ -103,7 +103,6 @@ class EventType(Base):
     id = Column(BigInteger, primary_key=True)
     name = Column(String(100), unique=True)
     description = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 class Event(Base):
@@ -308,12 +307,9 @@ def log_event(
     os_name: Optional[str] = None,
     device_type: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
-) -> Optional[Event]:
+) -> Event:
     """
     Log a tracking event to the database.
-
-    Each event type is recorded at most once per campaign target.
-    Duplicate events (same campaign_target + event_type) are skipped.
 
     Args:
         session: SQLAlchemy session
@@ -327,25 +323,9 @@ def log_event(
         metadata: Additional metadata as dict
 
     Returns:
-        Created Event object, or existing Event if already logged
+        Created Event object
     """
     event_type = get_or_create_event_type(session, event_type_name)
-
-    # Deduplicate: only log once per campaign_target per event_type
-    if campaign_target_id is not None:
-        existing = (
-            session.query(Event)
-            .filter(
-                Event.campaign_target_id == campaign_target_id,
-                Event.event_type_id == event_type.id,
-            )
-            .first()
-        )
-        if existing:
-            logger.debug(
-                f"Event already exists: {event_type_name} for campaign_target={campaign_target_id}"
-            )
-            return existing
 
     event = Event(
         campaign_target_id=campaign_target_id,

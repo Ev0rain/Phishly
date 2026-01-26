@@ -455,39 +455,6 @@ def serve_landing_page(url_path):
     user_agent = request.headers.get("User-Agent", "")
     ua_info = parse_user_agent(user_agent)
 
-    # Track credential submission when target reaches the awareness page.
-    # This MUST happen before the cache/DB content lookup because the
-    # awareness page may not exist as a cached landing page, which would
-    # cause the tracking code to never execute if it were nested inside
-    # the cache_result or landing_page blocks.
-    normalized_url = url_path.strip("/").lower()
-    is_awareness_page = normalized_url == "awareness" or normalized_url.startswith("awareness/")
-
-    if is_awareness_page and token:
-        try:
-            with db_manager.get_session() as session:
-                campaign_target = get_campaign_target_by_token(session, token)
-                if campaign_target:
-                    log_event(
-                        session,
-                        campaign_target_id=campaign_target.id,
-                        event_type_name="form_submitted",
-                        ip_address=ip_address,
-                        user_agent=user_agent,
-                        browser=ua_info["browser"],
-                        os_name=ua_info["os"],
-                        device_type=ua_info["device_type"],
-                    )
-                    update_campaign_target_status(
-                        session, campaign_target.id, "submitted"
-                    )
-                    logger.info(
-                        f"Credentials submitted (awareness page): token={token[:8]}... "
-                        f"target_id={campaign_target.target_id}"
-                    )
-        except Exception as e:
-            logger.error(f"Error tracking credential submission: {e}")
-
     # Try to find cached landing page first
     cache_result = find_cached_landing_page(url_path)
 
@@ -512,14 +479,14 @@ def serve_landing_page(url_path):
             is_html_page = True
 
         # Track the visit (only for HTML pages, not for static assets)
-        # Note: awareness page credential tracking is handled above, before cache lookup
-        if is_html_page and not is_awareness_page:
+        if is_html_page:
             if token:
                 try:
                     with db_manager.get_session() as session:
                         campaign_target = get_campaign_target_by_token(session, token)
 
                         if campaign_target:
+                            # Valid token - log link_clicked
                             log_event(
                                 session,
                                 campaign_target_id=campaign_target.id,
@@ -530,14 +497,18 @@ def serve_landing_page(url_path):
                                 os_name=ua_info["os"],
                                 device_type=ua_info["device_type"],
                             )
+
+                            # Update status to "clicked"
                             update_campaign_target_status(
                                 session, campaign_target.id, "clicked"
                             )
+
                             logger.info(
                                 f"Link clicked: token={token[:8]}... "
                                 f"url_path={url_path} target_id={campaign_target.target_id}"
                             )
                         else:
+                            # Invalid token
                             log_event(
                                 session,
                                 campaign_target_id=None,
@@ -589,32 +560,23 @@ def serve_landing_page(url_path):
             landing_page = get_landing_page_by_url_path(session, url_path)
 
             if landing_page:
-                # Track link click (awareness page tracking already handled above)
-                if not is_awareness_page:
-                    if token:
-                        campaign_target = get_campaign_target_by_token(session, token)
-                        if campaign_target:
-                            log_event(
-                                session,
-                                campaign_target_id=campaign_target.id,
-                                event_type_name="link_clicked",
-                                ip_address=ip_address,
-                                user_agent=user_agent,
-                                browser=ua_info["browser"],
-                                os_name=ua_info["os"],
-                                device_type=ua_info["device_type"],
-                            )
-                            update_campaign_target_status(
-                                session, campaign_target.id, "clicked"
-                            )
-                        else:
-                            log_event(
-                                session,
-                                campaign_target_id=None,
-                                event_type_name="anonymous_visit",
-                                ip_address=ip_address,
-                                user_agent=user_agent,
-                            )
+                # Track the visit (same logic as above)
+                if token:
+                    campaign_target = get_campaign_target_by_token(session, token)
+                    if campaign_target:
+                        log_event(
+                            session,
+                            campaign_target_id=campaign_target.id,
+                            event_type_name="link_clicked",
+                            ip_address=ip_address,
+                            user_agent=user_agent,
+                            browser=ua_info["browser"],
+                            os_name=ua_info["os"],
+                            device_type=ua_info["device_type"],
+                        )
+                        update_campaign_target_status(
+                            session, campaign_target.id, "clicked"
+                        )
                     else:
                         log_event(
                             session,
@@ -623,6 +585,14 @@ def serve_landing_page(url_path):
                             ip_address=ip_address,
                             user_agent=user_agent,
                         )
+                else:
+                    log_event(
+                        session,
+                        campaign_target_id=None,
+                        event_type_name="anonymous_visit",
+                        ip_address=ip_address,
+                        user_agent=user_agent,
+                    )
 
                 # Return HTML content directly from database
                 return Response(
