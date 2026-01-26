@@ -12,7 +12,7 @@
 
 **Phishly** is a phishing simulation platform for organizations to conduct security awareness training and analyze employee behavior through controlled phishing campaigns.
 
-[Quick Start](#quick-start) • [Deployment](#deployment) • [Architecture](#architecture) • [Team](#team)
+[Quick Start](#quick-start) • [Deployment](#deployment) • [Templates](#template-management) • [Architecture](#architecture) • [Tracking](#how-tracking-works) • [Team](#team)
 
 </div>
 
@@ -438,34 +438,106 @@ Email templates define the content of phishing emails sent to targets.
 
 #### Template Variables
 
-Email templates support Jinja2 template variables for personalization:
+Email templates use **Jinja2 syntax** (`{{ variable_name }}`) for personalization. All variables are substituted at send time by the Celery worker.
 
-```html
-<!-- Target Information -->
-{{ first_name }}          <!-- Target's first name -->
-{{ last_name }}           <!-- Target's last name -->
-{{ email }}               <!-- Target's email address -->
-{{ position }}            <!-- Target's job position -->
-{{ department }}          <!-- Target's department -->
+**Target Information**:
 
-<!-- Tracking & Links -->
-{{ tracking_token }}      <!-- Unique tracking token (automatically added) -->
-{{ tracking_pixel }}      <!-- Tracking pixel (automatically injected) -->
-{{ phishing_link }}       <!-- Link to landing page with tracking token -->
-```
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `{{ salutation }}` | Target's salutation (Mr., Ms., Dr., etc.) | `Mr.` |
+| `{{ first_name }}` | Target's first name | `John` |
+| `{{ last_name }}` | Target's last name | `Smith` |
+| `{{ email }}` | Target's email address | `john.smith@company.com` |
+| `{{ position }}` | Target's job title | `IT Manager` |
+| `{{ department }}` | Target's department | `Engineering` |
+
+**Sender Information** (from the email template metadata):
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `{{ sender_name }}` | Sender display name | `IT Support` |
+| `{{ sender_email }}` | Sender email address | `support@company.com` |
+| `{{ from_name }}` | Alias for `sender_name` | `IT Support` |
+| `{{ from_email }}` | Alias for `sender_email` | `support@company.com` |
+
+**Campaign Information**:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `{{ campaign_name }}` | Name of the campaign | `Q1 Security Awareness` |
+
+**Tracking & Links** (auto-generated):
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `{{ phishing_link }}` | Full URL to landing page with tracking token | `https://domain.com/login?t=abc123` |
+| `{{ landing_page_url }}` | Alias for `phishing_link` | `https://domain.com/login?t=abc123` |
+| `{{ tracking_pixel_url }}` | URL for the open-tracking pixel | `https://domain.com/track/open?t=abc123` |
+| `{{ unsubscribe_url }}` | Unsubscribe link URL | `https://domain.com/unsubscribe?t=abc123` |
+
+**Auto-generated Utility Variables**:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `{{ tracking_number }}` | UPS-style tracking number (for shipping templates) | `1Z999AA10123456784` |
+| `{{ delivery_date }}` | Date 3–5 days in the future | `January 31, 2026` |
+| `{{ year }}` | Current year (for copyright footers) | `2026` |
 
 **Example template**:
 ```html
 <!DOCTYPE html>
 <html>
 <body>
-    <p>Dear {{ first_name }} {{ last_name }},</p>
+    <p>Dear {{ salutation }} {{ last_name }},</p>
     <p>The {{ department }} department requires your immediate attention.</p>
-    <p><a href="{{ phishing_link }}">Click here to verify your account</a></p>
-    <p>If you have questions, contact us at support@company.com</p>
+    <p>Please <a href="{{ phishing_link }}">click here to verify your account</a>.</p>
+    <p>If you have questions, contact us at {{ sender_email }}</p>
+    <p>&copy; {{ year }} {{ sender_name }}. All rights reserved.</p>
 </body>
 </html>
 ```
+
+**Subject line**: The email subject also supports Jinja2 variables. For example:
+```
+Urgent: {{ first_name }}, your account requires verification
+```
+
+#### Authoring Guidelines for Email Templates
+
+**HTML Structure Requirements**
+
+- Your HTML **must** include a `</body>` tag. The tracking pixel is automatically injected immediately before `</body>`. If no `</body>` tag is found, the pixel is appended to the end of the HTML, which may not render correctly in all email clients.
+- Use a complete HTML structure (`<!DOCTYPE html>`, `<html>`, `<head>`, `<body>`) for best compatibility.
+
+**Phishing Link Placement**
+
+Use the `{{ phishing_link }}` variable for all links that should direct targets to the landing page:
+```html
+<a href="{{ phishing_link }}">Click here to take action</a>
+```
+
+This variable expands to the full URL including the tracking token: `https://{landing_page_domain}/{url_path}?t={token}`. The domain and path come from the landing page assigned to the campaign.
+
+**Do not** manually construct tracking URLs or hardcode domains in your template — always use the provided variables.
+
+**Email Client Compatibility**
+
+For broad email client support:
+- Use **inline CSS** styles rather than `<style>` blocks (many email clients strip `<style>` tags)
+- Use **table-based layouts** for consistent rendering across Outlook, Gmail, Apple Mail, etc.
+- Avoid JavaScript — it is blocked by all major email clients
+- Use absolute URLs for any images (relative paths will not work in email)
+- Keep total email size under 100 KB for deliverability
+
+**Plain Text Fallback**
+
+If the template does not provide a `body_text` field, a plain text version is automatically generated by stripping HTML tags from the rendered HTML. For better control over the plain text version, provide it explicitly.
+
+**What Not to Include**
+
+- Do **not** add a tracking pixel manually — it is injected automatically
+- Do **not** include the `{{ tracking_token }}` variable directly in email body text — use `{{ phishing_link }}` instead, which already embeds the token
+- Do **not** hardcode the phishing domain — it is resolved from the landing page configuration
 
 #### Editing Templates
 
@@ -593,6 +665,75 @@ Landing page HTML templates support these variables:
    - Stops serving landing page
    - Can only deactivate if no active campaigns use it
    - Cleans up deployed files
+
+#### Authoring Guidelines for Landing Pages
+
+To ensure tracking works correctly, landing page HTML must follow these rules:
+
+**Form Submissions**
+
+All forms must POST to `/api/submit` with the tracking token. There are two ways to include the token:
+
+**Option A** — Query parameter (recommended):
+```html
+<form method="POST" action="/api/submit?t={{ tracking_token }}">
+  <input type="email" name="email" placeholder="Email" />
+  <input type="password" name="password" placeholder="Password" />
+  <button type="submit">Sign In</button>
+</form>
+```
+
+**Option B** — Hidden field:
+```html
+<form method="POST" action="/api/submit">
+  <input type="hidden" name="_token" value="{{ tracking_token }}" />
+  <input type="email" name="email" />
+  <input type="password" name="password" />
+  <button type="submit">Sign In</button>
+</form>
+```
+
+If your landing page uses JavaScript to submit forms, make sure the tracking token is included in the POST request body or as a query parameter.
+
+**Credential Detection**
+
+The phishing server automatically detects password fields by checking for these field names: `password`, `passwd`, `pass`, `pwd`, `secret`. If any of these are present in the submitted form, the event is logged as `credentials_captured` instead of `form_submitted`. Name your password fields accordingly if you want this distinction.
+
+**Reserved URL Paths**
+
+Do **not** use these paths for your landing page content — they are reserved by the phishing server:
+
+| Path | Purpose |
+|------|---------|
+| `/track/open` | Email open tracking pixel endpoint |
+| `/api/submit` | Form submission endpoint |
+| `/health` | Health check endpoint |
+| `/awareness` | Awareness training redirect page |
+
+**Static Assets**
+
+Static files (CSS, JS, images, fonts) are served from your template directory without triggering tracking events. Supported extensions: `.css`, `.js`, `.png`, `.jpg`, `.gif`, `.svg`, `.ico`, `.woff`, `.woff2`, `.ttf`, `.eot`, `.map`.
+
+Reference them with relative paths:
+```html
+<link rel="stylesheet" href="assets/css/style.css" />
+<script src="assets/js/script.js"></script>
+<img src="assets/images/logo.png" />
+```
+
+**Post-Submission Redirect**
+
+Configure the `redirect_url` field on your landing page to control where targets go after submitting a form. Common patterns:
+- Redirect to an awareness/training page (e.g., `https://your-domain.com/awareness`)
+- Redirect to the real login page of the spoofed service
+- Redirect to a "thank you" or "error" page within your template
+
+**Multiple Pages**
+
+A landing page template can contain multiple HTML files (e.g., `index.html`, `login.html`, `login-alt.html`). The phishing server resolves files in this order:
+1. Exact file match (e.g., `/login.html` serves `login.html`)
+2. Directory with `index.html` (e.g., `/` serves `index.html`)
+3. Fallback to root `index.html`
 
 ---
 
@@ -777,18 +918,22 @@ docker exec postgres-db psql -U phishly_user -d phishly \
 
 ## Architecture
 
-Phishly follows a **microservices architecture** with strict service boundaries:
+Phishly follows a **microservices architecture** with six containers across three isolated networks:
 
 ```
                                 ┌─────────────────────────────────────────────────────────────┐
                                 │                    Caddy Reverse Proxy                      │
                                 │          (HTTPS Termination & Request Routing)              │
+                                │          Ports: 80, 443, 8006                               │
+                                │          Networks: net_public, net_admin, net_data           │
                                 └─────────────┬───────────────────────────┬───────────────────┘
                                               │                           │
                                     ┌─────────▼──────────┐       ┌────────▼─────────┐
                                     │   Webadmin Service │       │   Phish Service  │
                                     │   (Flask Admin)    │       │  (Landing Pages) │
-                                    │   Port: 8006       │       │   Port: 5000     │
+                                    │   Port: 8006       │       │   Port: 8000     │
+                                    │   net_admin,       │       │   net_public,    │
+                                    │   net_data         │       │   net_data       │
                                     └─────────┬──────────┘       └────────┬─────────┘
                                               │                           │
                                               └───────────┬───────────────┘
@@ -796,13 +941,15 @@ Phishly follows a **microservices architecture** with strict service boundaries:
                                               ┌───────────▼────────────┐
                                               │   PostgreSQL Database  │
                                               │   Port: 5432           │
+                                              │   net_data             │
                                               └───────────┬────────────┘
                                                           │
                                     ┌─────────────────────┴─────────────────────┐
                                     │                                           │
                                 ┌───▼──────────┐                    ┌───────────▼────────┐
-                                │ Redis Queue  │◄───────────────────┤  Celery Worker     │
+                                │ Redis Cache  │◄───────────────────┤  Celery Worker     │
                                 │ Port: 6379   │                    │  (Email Sending)   │
+                                │ net_data     │                    │  net_data          │
                                 └──────────────┘                    └────────────────────┘
 ```
 
@@ -810,31 +957,188 @@ Phishly follows a **microservices architecture** with strict service boundaries:
 
 | Service | Technology | Purpose | Port |
 |---------|-----------|---------|------|
-| **webadmin** | Flask 3.0 | Admin dashboard & REST API | 8006 |
-| **phish** | Flask 3.0 | Public phishing landing pages | 5000 |
-| **worker** | Celery | Async task processing (emails) | - |
-| **db** | PostgreSQL 17 | Data persistence | 5432 |
-| **redis** | Redis 7 | Message queue & session storage | 6379 |
-| **reverse-proxy** | Caddy 2 | HTTPS termination & routing | 80/443 |
+| **reverse-proxy** | Caddy 2 | HTTPS termination, routing, access control | 80/443/8006 |
+| **webadmin** | Flask 3.0 | Admin dashboard, campaign management, REST API | 8006 |
+| **phishing server** | Flask 3.0 | Public landing pages, tracking endpoints, form capture | 8000 |
+| **worker** | Celery | Async email sending, campaign batch processing | — |
+| **db** | PostgreSQL 17 | All persistent data (campaigns, targets, events, templates) | 5432 |
+| **redis** | Redis 7 | Session storage, message broker, task results | 6379 |
+
+### Container Roles
+
+**Caddy Reverse Proxy** (`phishly-reverse-proxy`)
+- Terminates TLS/SSL using mounted certificates
+- Routes public traffic (ports 80/443) to the phishing server
+- Routes admin traffic (port 8006) to the webadmin service
+- Enforces access control: admin endpoints restricted to private networks (RFC 1918, IPv6 ULA, localhost) — never exposed publicly
+- Forwards client IP addresses to backend services via `X-Forwarded-For`
+
+**WebAdmin** (`phishly-webadmin`)
+- Admin dashboard for creating and managing campaigns, targets, email templates, and landing pages
+- Provides REST API for all management operations
+- Handles user authentication with session-based login (sessions stored in Redis)
+- Deploys landing page templates to campaign-specific directories on launch
+- Runs database migrations and initialization on first deployment
+- Uses a custom `docker-entrypoint.sh` that initializes directories and drops to a non-root user (UID 1000)
+
+**Phishing Server** (`phishly-phishing`)
+- Serves landing pages to targets who click phishing links
+- Handles tracking endpoints: `/track/open` (email open pixel), link clicks (via `?t=` parameter), and `/api/submit` (form submissions)
+- Resolves landing page content from campaign deployment directories, legacy cache, or database fallback
+- Logs all tracking events (IP, user agent, browser, OS, device type) to the database
+- Serves static assets (CSS, JS, images) without triggering tracking events
+- Read-only access to campaign deployment volumes
+
+**Celery Worker** (`celery-worker`)
+- Processes email sending tasks asynchronously from the Redis queue
+- Renders email templates with Jinja2 (substitutes target info, builds tracking URLs, injects tracking pixel)
+- Sends emails via SMTP with configurable TLS/SSL
+- Retries failed sends up to 3 times with 60-second delays
+- Idempotent: checks if email already sent before retrying to prevent duplicates
+- Task timeout: 5 minutes per email, prefetch multiplier of 1 (processes one task at a time)
+
+**PostgreSQL** (`postgres-db`)
+- Stores all persistent data: campaigns, targets, email templates, landing pages, tracking events, form submissions
+- Health-checked with `pg_isready`
+- Data persisted in `phishly_postgres_data` Docker volume
+
+**Redis** (`redis-cache`)
+- Uses three logical databases for separation of concerns:
+  - **DB 0**: Flask session storage (webadmin login sessions)
+  - **DB 1**: Celery message broker (task queue)
+  - **DB 2**: Celery results backend (task status/results)
+- Data persisted in `phishly_redis_data` Docker volume with AOF persistence
 
 ### Network Isolation
 
-**Two-domain architecture** ensures security:
+Phishly uses **three isolated Docker networks** to enforce strict service boundaries:
 
-- **Public Domain** (e.g. `phishing.example.com`)
-  - Configured per landing page
-  - Accessible from internet
-  - Hosts phishing landing pages
-  - Tracks user interactions
-  - Isolated from admin panel
+| Network | Containers | Purpose |
+|---------|-----------|---------|
+| `net_public` | reverse-proxy, phishing server | Internet-facing traffic (landing pages, tracking) |
+| `net_admin` | reverse-proxy, webadmin | Admin access (restricted to LAN/VPN) |
+| `net_data` | All services | Internal data plane (database, Redis, worker) |
 
-- **Internal Domain** (`admin.internal.example` or `localhost:8006`)
+**Two-domain architecture**:
+
+- **Public Domain** (e.g., `phishing.example.com`)
+  - Configured per landing page — each page specifies its own domain
+  - Accessible from the internet via ports 80/443
+  - Hosts phishing landing pages and tracking endpoints
+  - Completely isolated from the admin panel
+
+- **Internal Domain** (e.g., `admin.internal.example` or `localhost:8006`)
   - Accessible only via company LAN/VPN or localhost
-  - Admin dashboard and API
-  - Campaign management
-  - Statistics and reporting
+  - Caddy rejects connections from public IP ranges
+  - Hosts the admin dashboard, campaign management, and reporting
 
-The reverse proxy enforces this boundary. Admin endpoints are **never** exposed publicly.
+### Shared Volumes
+
+| Volume | Mounted By | Purpose |
+|--------|-----------|---------|
+| `phishly_postgres_data` | db | PostgreSQL data persistence |
+| `phishly_redis_data` | redis | Redis data persistence |
+| Campaign deployments | webadmin (read-write), phishing server (read-only) | Landing pages deployed per-campaign at runtime |
+| Template library | webadmin (read-only) | Source email and landing page templates |
+| Legacy cache | webadmin (read-write), phishing server (read-only) | Backward-compatible landing page cache |
+
+---
+
+## How Tracking Works
+
+Phishly tracks target interactions through a token-based system that follows each target across the full campaign lifecycle: email delivery, open detection, link clicks, and form submissions.
+
+### Tracking Tokens
+
+Each target in a campaign receives a **unique tracking token** — a deterministic identifier generated using HMAC-SHA256:
+
+```
+token = HMAC-SHA256(campaign_id + target_id, secret_key)  →  URL-safe base64, 32 characters
+```
+
+- Tokens are **deterministic**: the same campaign + target always produces the same token
+- Tokens are stored in the `campaign_targets.tracking_token` column (unique constraint)
+- Generated on first email send and reused for all subsequent interactions
+- Tokens are embedded in email links and the tracking pixel URL
+
+### Email Open Tracking
+
+**Mechanism**: Invisible 1x1 transparent GIF pixel injected into every outgoing email.
+
+**Flow**:
+1. The Celery worker renders the email template and automatically injects a tracking pixel before the `</body>` tag:
+   ```html
+   <img src="https://{landing_page_domain}/track/open?t={tracking_token}"
+        width="1" height="1" style="display:none;" />
+   ```
+2. When the target opens the email, their email client loads the pixel image
+3. The phishing server receives the request at `/track/open?t={token}`
+4. The server looks up the `campaign_target` by token and logs an `email_opened` event
+5. The target's status is updated to `opened`
+
+**Limitations**: Some email clients block external images by default, so open tracking may undercount actual opens.
+
+### Link Click Tracking
+
+**Mechanism**: Tracking token appended as a query parameter to all phishing links.
+
+**Flow**:
+1. The email template uses the `{{ phishing_link }}` variable, which renders as:
+   ```
+   https://{landing_page_domain}/{url_path}?t={tracking_token}
+   ```
+2. When the target clicks the link, the phishing server receives the request
+3. The server extracts the `?t=` parameter, looks up the `campaign_target`
+4. A `link_clicked` event is logged with IP, user agent, browser, OS, and device type
+5. The target's status is updated to `clicked`
+6. The landing page HTML is served to the target
+
+**Note**: Static assets (`.css`, `.js`, `.png`, `.gif`, `.svg`, `.woff`, `.ttf`, etc.) are served without triggering tracking events — only HTML page requests are tracked.
+
+### Form Submission Tracking
+
+**Mechanism**: Landing page forms POST to a dedicated endpoint with the tracking token.
+
+**Flow**:
+1. The landing page form submits to `/api/submit?t={tracking_token}` (the token can also be passed as a hidden field named `_token` or `t`)
+2. The phishing server receives the form data
+3. The server detects whether credentials were submitted by checking for password-like field names (`password`, `passwd`, `pass`, `pwd`, `secret`)
+4. An event is logged:
+   - `credentials_captured` — if a password field was detected
+   - `form_submitted` — for all other form data
+5. A `FormSubmission` record is created with the captured field data
+6. The target's status is updated to `submitted`
+7. The target is redirected to the landing page's configured `redirect_url` (typically an awareness page)
+
+### Target Status Progression
+
+Each target's status progresses through a one-way lifecycle — it can only advance forward:
+
+```
+pending  →  sent  →  opened  →  clicked  →  submitted
+```
+
+| Status | Meaning |
+|--------|---------|
+| `pending` | Target assigned to campaign, email not yet sent |
+| `sent` | Email successfully delivered via SMTP |
+| `opened` | Tracking pixel loaded (email opened) |
+| `clicked` | Phishing link clicked (landing page visited) |
+| `submitted` | Form submitted on the landing page |
+
+### Event Data
+
+Every tracking event records:
+
+| Field | Description |
+|-------|-------------|
+| `event_type` | `email_opened`, `link_clicked`, `form_submitted`, or `credentials_captured` |
+| `ip_address` | Target's IP address (forwarded by Caddy) |
+| `user_agent` | Full user agent string |
+| `browser` | Detected browser (Chrome, Firefox, Safari, Edge, IE) |
+| `os` | Detected OS (Windows, macOS, Linux, Android, iOS) |
+| `device_type` | Detected device (desktop, mobile, tablet) |
+| `created_at` | Timestamp of the event |
 
 ---
 
