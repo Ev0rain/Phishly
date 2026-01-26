@@ -220,10 +220,9 @@ class EventType(Base):
     __tablename__ = "event_types"
 
     id = Column(BigInteger, primary_key=True)
-    name = Column(String(100))  # email_sent, email_opened, link_clicked, form_submitted
+    name = Column(String(100), unique=True, nullable=False)  # email_sent, email_opened, link_clicked, form_submitted
     description = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class Event(Base):
@@ -473,6 +472,9 @@ def log_event(
     """
     Log a tracking event.
 
+    Each event type is recorded at most once per campaign target.
+    Duplicate events (same campaign_target + event_type) are skipped.
+
     Args:
         session: SQLAlchemy session
         campaign_target_id: CampaignTarget ID
@@ -482,7 +484,7 @@ def log_event(
         metadata: Additional metadata as JSON string
 
     Returns:
-        Created Event object
+        Created Event object, or existing Event if already logged
     """
     # Get or create event type
     event_type = session.query(EventType).filter(EventType.name == event_type_name).first()
@@ -492,6 +494,19 @@ def log_event(
         session.add(event_type)
         session.flush()
 
+    # Deduplicate: only log once per campaign_target per event_type
+    if campaign_target_id is not None:
+        existing = (
+            session.query(Event)
+            .filter(
+                Event.campaign_target_id == campaign_target_id,
+                Event.event_type_id == event_type.id,
+            )
+            .first()
+        )
+        if existing:
+            return existing
+
     # Create event
     event = Event(
         campaign_target_id=campaign_target_id,
@@ -499,7 +514,6 @@ def log_event(
         created_at=datetime.utcnow(),
         ip_address=ip_address,
         user_agent=user_agent,
-        # Note: event_metadata column was removed from model since it doesn't exist in DB
     )
     session.add(event)
     session.flush()

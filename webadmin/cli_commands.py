@@ -20,6 +20,15 @@ def init_db_command():
         click.echo(f"⚠️  Error creating tables: {e}")
         db.session.rollback()
 
+    # Initialize event types for tracking
+    try:
+        from database import init_event_types
+        init_event_types()
+        click.echo("✅ Event types initialized.")
+    except Exception as e:
+        click.echo(f"⚠️  Error initializing event types: {e}")
+        db.session.rollback()
+
     # Check if admin exists
     try:
         admin = db.session.query(AdminUser).filter_by(username="admin").first()

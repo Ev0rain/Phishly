@@ -33,5 +33,5 @@ Thumbs.db!/.python-version
 
 # DNS zones - ignore all files except .gitkeep
 /webadmin/dns_zones/*
-/certs
+certs/
 phishly.egg-info/

@@ -193,6 +193,14 @@ def create_app(config=None):
             if not request.path.startswith("/login") and not request.path.startswith("/static"):
                 return redirect(url_for("auth.login_page"))
 
+    # Initialize event types (ensures tracking events can be logged)
+    with app.app_context():
+        try:
+            from database import init_event_types
+            init_event_types()
+        except Exception as e:
+            print(f"⚠️  Could not initialize event types: {e}")
+
     # Register CLI commands
     from cli_commands import register_commands
 
