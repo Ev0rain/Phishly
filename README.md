@@ -1,6 +1,6 @@
 <div align="center
 
-![Phishly Logo](Phishly.webp)
+![Phishly Logo](https://github.com/Ev0rain/Phishly/blob/main/Phishly.webp)
 
 ### Phishing Simulation Platform for Security Awareness Training
 
