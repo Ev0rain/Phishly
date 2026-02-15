@@ -1,6 +1,6 @@
 <div align="center">
 
-![Phishly Logo](resources/Phishly.webp)
+![Phishly Logo](resources/Phishly_logo_transparent.webp)
 
 ### Phishing Simulation Platform for Security Awareness Training
 
